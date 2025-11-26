@@ -18,7 +18,7 @@ class SwaggerConfig {
                 Info()
                     .title("Worktime API")
                     .version("1.0.0")
-                    .description("알바 관리 서비스 - RESTful API built with Spring Boot, Kotlin, and Hexagonal Architecture")
+                    .description("알바 관리 서비스 - Worker, Schedule, and Work Log Management API built with Spring Boot, Kotlin, and Hexagonal Architecture")
             )
     }
 }
