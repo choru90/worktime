@@ -6,10 +6,10 @@ import java.time.OffsetDateTime
 import java.util.*
 
 /**
- * Work log (출퇴근 기록) entity.
- * Represents a worker's clock-in and clock-out record.
+ * Work log (출퇴근 기록) 엔티티
+ * 근로자의 출근 및 퇴근 기록을 나타냅니다.
  * 
- * Times are stored in UTC with timezone information.
+ * 시간은 타임존 정보와 함께 UTC로 저장됩니다.
  */
 @Entity
 @Table(
@@ -31,22 +31,22 @@ class WorkLog(
     val worker: Worker,
     
     /**
-     * Associated schedule (optional - can be null for ad-hoc work)
+     * 연결된 스케줄 (선택사항 - 임시 근무의 경우 null 가능)
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "schedule_id", nullable = true, foreignKey = ForeignKey(name = "fk_work_log_schedule"))
     val schedule: Schedule? = null,
     
     /**
-     * Clock-in time in UTC
-     * Stored as TIMESTAMP WITH TIME ZONE
+     * UTC 기준 출근 시간
+     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
      */
     @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     var clockInAt: OffsetDateTime,
     
     /**
-     * Clock-out time in UTC (nullable - null means still working)
-     * Stored as TIMESTAMP WITH TIME ZONE
+     * UTC 기준 퇴근 시간 (nullable - null은 아직 근무 중을 의미)
+     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
      */
     @Column(nullable = true, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     var clockOutAt: OffsetDateTime? = null,
@@ -57,31 +57,31 @@ class WorkLog(
 ) : BaseEntity() {
     
     /**
-     * Clock out the worker
+     * 근로자를 퇴근 처리합니다
      */
     fun clockOut(clockOutTime: OffsetDateTime) {
         require(status == WorkLogStatus.ONGOING) {
-            "Can only clock out for ongoing work logs"
+            "진행 중인 근무 기록만 퇴근 처리할 수 있습니다"
         }
         require(clockOutTime.isAfter(clockInAt)) {
-            "Clock out time must be after clock in time"
+            "퇴근 시간은 출근 시간 이후여야 합니다"
         }
         clockOutAt = clockOutTime
         status = WorkLogStatus.COMPLETED
     }
     
     /**
-     * Mark as no-show
+     * 무단 결근으로 표시합니다
      */
     fun markAsNoShow() {
         require(status == WorkLogStatus.ONGOING) {
-            "Can only mark ongoing work logs as no-show"
+            "진행 중인 근무 기록만 무단 결근으로 표시할 수 있습니다"
         }
         status = WorkLogStatus.NO_SHOW
     }
     
     /**
-     * Manually adjust the work log
+     * 근무 기록을 수동으로 조정합니다
      */
     fun manuallyAdjust(newClockInAt: OffsetDateTime, newClockOutAt: OffsetDateTime?) {
         clockInAt = newClockInAt
@@ -90,14 +90,14 @@ class WorkLog(
     }
     
     /**
-     * Calculate worked duration (if clocked out)
+     * 근무 시간을 계산합니다 (퇴근 처리된 경우)
      */
     fun calculateDuration(): Duration? {
         return clockOutAt?.let { Duration.between(clockInAt, it) }
     }
     
     /**
-     * Check if worker is currently working
+     * 근로자가 현재 근무 중인지 확인합니다
      */
     fun isOngoing(): Boolean {
         return status == WorkLogStatus.ONGOING && clockOutAt == null

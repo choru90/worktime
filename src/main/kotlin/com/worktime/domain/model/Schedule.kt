@@ -5,11 +5,11 @@ import java.time.OffsetDateTime
 import java.util.*
 
 /**
- * Schedule (근무 스케줄) entity.
- * Represents a work schedule that can be requested by worker or proposed by owner.
+ * Schedule (근무 스케줄) 엔티티
+ * 근로자가 요청하거나 고용주가 제안할 수 있는 근무 스케줄을 나타냅니다.
  * 
- * Times are stored in UTC (startAtUtc, endAtUtc) while the original timezone
- * is preserved in the timezone field for reference.
+ * 시간은 UTC로 저장되며(startAtUtc, endAtUtc) 원본 타임존은
+ * 참조를 위해 timezone 필드에 보존됩니다.
  */
 @Entity
 @Table(
@@ -30,22 +30,22 @@ class Schedule(
     val worker: Worker,
     
     /**
-     * Schedule start time in UTC
-     * Stored as TIMESTAMP WITH TIME ZONE
+     * UTC 기준 스케줄 시작 시간
+     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
      */
     @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     var startAtUtc: OffsetDateTime,
     
     /**
-     * Schedule end time in UTC
-     * Stored as TIMESTAMP WITH TIME ZONE
+     * UTC 기준 스케줄 종료 시간
+     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
      */
     @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
     var endAtUtc: OffsetDateTime,
     
     /**
-     * Original timezone identifier (e.g., "Asia/Seoul")
-     * Preserved for reference and display purposes
+     * 원본 타임존 식별자 (예: "Asia/Seoul")
+     * 참조 및 표시 목적으로 보존됩니다
      */
     @Column(nullable = false, length = 50)
     var timezone: String,
@@ -56,31 +56,31 @@ class Schedule(
 ) : BaseEntity() {
     
     /**
-     * Confirm the schedule
+     * 스케줄을 확정합니다
      */
     fun confirm() {
         require(status == ScheduleStatus.REQUESTED_BY_WORKER || status == ScheduleStatus.PROPOSED_BY_OWNER) {
-            "Can only confirm schedules that are in REQUESTED_BY_WORKER or PROPOSED_BY_OWNER status"
+            "REQUESTED_BY_WORKER 또는 PROPOSED_BY_OWNER 상태의 스케줄만 확정할 수 있습니다"
         }
         status = ScheduleStatus.CONFIRMED
     }
     
     /**
-     * Reject the schedule
+     * 스케줄을 거부합니다
      */
     fun reject() {
         require(status == ScheduleStatus.REQUESTED_BY_WORKER || status == ScheduleStatus.PROPOSED_BY_OWNER) {
-            "Can only reject schedules that are in REQUESTED_BY_WORKER or PROPOSED_BY_OWNER status"
+            "REQUESTED_BY_WORKER 또는 PROPOSED_BY_OWNER 상태의 스케줄만 거부할 수 있습니다"
         }
         status = ScheduleStatus.REJECTED
     }
     
     /**
-     * Cancel the schedule
+     * 스케줄을 취소합니다
      */
     fun cancel() {
         require(status == ScheduleStatus.CONFIRMED) {
-            "Can only cancel confirmed schedules"
+            "확정된 스케줄만 취소할 수 있습니다"
         }
         status = ScheduleStatus.CANCELED
     }

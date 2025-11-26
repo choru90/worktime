@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 /**
- * Configuration for Swagger/OpenAPI documentation.
+ * Swagger/OpenAPI 문서화 설정
  */
 @Configuration
 class SwaggerConfig {
@@ -18,7 +18,7 @@ class SwaggerConfig {
                 Info()
                     .title("Worktime API")
                     .version("1.0.0")
-                    .description("알바 관리 서비스 - Worker, Schedule, and Work Log Management API built with Spring Boot, Kotlin, and Hexagonal Architecture")
+                    .description("알바 관리 서비스 - Spring Boot, Kotlin, Hexagonal Architecture로 구축된 Worker, Schedule, Work Log 관리 API")
             )
     }
 }

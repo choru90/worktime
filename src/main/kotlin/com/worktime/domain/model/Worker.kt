@@ -4,8 +4,8 @@ import jakarta.persistence.*
 import java.util.*
 
 /**
- * Worker (알바생) entity.
- * Represents a part-time worker in the system.
+ * Worker (알바생) 엔티티
+ * 시스템의 아르바이트 근로자를 나타냅니다.
  */
 @Entity
 @Table(name = "workers")

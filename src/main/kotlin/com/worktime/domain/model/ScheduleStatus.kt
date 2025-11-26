@@ -1,31 +1,31 @@
 package com.worktime.domain.model
 
 /**
- * Status of a work schedule.
+ * 근무 스케줄의 상태
  */
 enum class ScheduleStatus {
     /**
-     * Worker requested this schedule
+     * 근로자가 요청한 스케줄
      */
     REQUESTED_BY_WORKER,
     
     /**
-     * Owner proposed this schedule
+     * 고용주가 제안한 스케줄
      */
     PROPOSED_BY_OWNER,
     
     /**
-     * Both parties confirmed the schedule
+     * 양측 모두 확정한 스케줄
      */
     CONFIRMED,
     
     /**
-     * Schedule was rejected
+     * 거부된 스케줄
      */
     REJECTED,
     
     /**
-     * Schedule was canceled
+     * 취소된 스케줄
      */
     CANCELED
 }

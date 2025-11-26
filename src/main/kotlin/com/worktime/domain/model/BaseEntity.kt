@@ -9,8 +9,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
 
 /**
- * Base entity with common audit fields.
- * All domain entities should extend this class.
+ * 공통 감사 필드가 있는 기본 엔티티
+ * 모든 도메인 엔티티는 이 클래스를 상속해야 합니다.
  */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener::class)
