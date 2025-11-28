@@ -23,7 +23,7 @@ import java.util.*
 )
 class WorkLog(
     @Id
-    @Column(columnDefinition = "uuid")
+    @Column
     val id: UUID = UUID.randomUUID(),
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -39,16 +39,16 @@ class WorkLog(
     
     /**
      * UTC 기준 출근 시간
-     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
+     * datetime(6)으로 저장됩니다
      */
-    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    @Column(nullable = false)
     var clockInAt: OffsetDateTime,
     
     /**
      * UTC 기준 퇴근 시간 (nullable - null은 아직 근무 중을 의미)
-     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
+     * datetime(6)으로 저장됩니다
      */
-    @Column(nullable = true, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    @Column(nullable = true)
     var clockOutAt: OffsetDateTime? = null,
     
     @Enumerated(EnumType.STRING)

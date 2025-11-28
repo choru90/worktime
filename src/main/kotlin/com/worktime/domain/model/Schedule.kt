@@ -22,7 +22,7 @@ import java.util.*
 )
 class Schedule(
     @Id
-    @Column(columnDefinition = "uuid")
+    @Column
     val id: UUID = UUID.randomUUID(),
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -31,16 +31,16 @@ class Schedule(
     
     /**
      * UTC 기준 스케줄 시작 시간
-     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
+     * datetime(6)으로 저장됩니다
      */
-    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    @Column(nullable = false)
     var startAtUtc: OffsetDateTime,
     
     /**
      * UTC 기준 스케줄 종료 시간
-     * TIMESTAMP WITH TIME ZONE으로 저장됩니다
+     * datetime(6)으로 저장됩니다
      */
-    @Column(nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    @Column(nullable = false)
     var endAtUtc: OffsetDateTime,
     
     /**

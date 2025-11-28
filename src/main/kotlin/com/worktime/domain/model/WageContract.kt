@@ -20,7 +20,7 @@ import java.util.*
 )
 class WageContract(
     @Id
-    @Column(columnDefinition = "uuid")
+    @Column
     val id: UUID = UUID.randomUUID(),
     
     @ManyToOne(fetch = FetchType.LAZY)

@@ -11,7 +11,7 @@ import java.util.*
 @Table(name = "workers")
 class Worker(
     @Id
-    @Column(columnDefinition = "uuid")
+    @Column
     val id: UUID = UUID.randomUUID(),
     
     @Column(nullable = false, length = 100)
