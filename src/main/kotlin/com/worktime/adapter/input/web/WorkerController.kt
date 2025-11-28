@@ -16,15 +16,15 @@ import java.util.*
  */
 @RestController
 @RequestMapping("/api/workers")
-@Tag(name = "Worker", description = "Worker management API")
+@Tag(name = "근로자", description = "근로자 관리 API")
 class WorkerController(
     private val workerUseCase: WorkerUseCase
 ) {
 
     @PostMapping
     @Operation(
-        summary = "Create a new worker",
-        description = "Creates a new worker with the provided information"
+        summary = "새로운 근로자 생성",
+        description = "제공된 정보로 새로운 근로자를 생성합니다"
     )
     fun createWorker(
         @Valid @RequestBody request: WorkerCreateRequest
@@ -35,11 +35,11 @@ class WorkerController(
 
     @PutMapping("/{id}")
     @Operation(
-        summary = "Update a worker",
-        description = "Updates an existing worker's information"
+        summary = "근로자 정보 수정",
+        description = "기존 근로자의 정보를 수정합니다"
     )
     fun updateWorker(
-        @Parameter(description = "Worker ID") @PathVariable id: UUID,
+        @Parameter(description = "근로자 ID") @PathVariable id: UUID,
         @Valid @RequestBody request: WorkerUpdateRequest
     ): ResponseEntity<WorkerResponse> {
         val response = workerUseCase.updateWorker(id, request)
@@ -48,11 +48,11 @@ class WorkerController(
 
     @DeleteMapping("/{id}")
     @Operation(
-        summary = "Delete (deactivate) a worker",
-        description = "Soft deletes a worker by setting active status to false"
+        summary = "근로자 삭제 (비활성화)",
+        description = "근로자를 소프트 삭제합니다 (active 상태를 false로 설정)"
     )
     fun deleteWorker(
-        @Parameter(description = "Worker ID") @PathVariable id: UUID
+        @Parameter(description = "근로자 ID") @PathVariable id: UUID
     ): ResponseEntity<Void> {
         workerUseCase.deleteWorker(id)
         return ResponseEntity.noContent().build()
@@ -60,11 +60,11 @@ class WorkerController(
 
     @GetMapping("/{id}")
     @Operation(
-        summary = "Get worker by ID",
-        description = "Retrieves detailed worker information including current wage and wage history"
+        summary = "근로자 상세 조회",
+        description = "현재 시급 및 시급 이력을 포함한 근로자의 상세 정보를 조회합니다"
     )
     fun getWorkerDetail(
-        @Parameter(description = "Worker ID") @PathVariable id: UUID
+        @Parameter(description = "근로자 ID") @PathVariable id: UUID
     ): ResponseEntity<WorkerDetailResponse> {
         val response = workerUseCase.getWorkerDetail(id)
         return ResponseEntity.ok(response)
@@ -72,11 +72,11 @@ class WorkerController(
 
     @GetMapping
     @Operation(
-        summary = "Get all workers",
-        description = "Retrieves all workers, optionally filtered by active status"
+        summary = "전체 근로자 목록 조회",
+        description = "전체 근로자 목록을 조회합니다. 활성 상태로 필터링할 수 있습니다."
     )
     fun getAllWorkers(
-        @Parameter(description = "Filter by active status") @RequestParam(required = false) active: Boolean?
+        @Parameter(description = "활성 상태로 필터링") @RequestParam(required = false) active: Boolean?
     ): ResponseEntity<List<WorkerResponse>> {
         val response = workerUseCase.getAllWorkers(active)
         return ResponseEntity.ok(response)
