@@ -1,0 +1,168 @@
+package com.worktime.application.service
+
+import com.worktime.adapter.input.web.dto.payroll.PayrollResponse
+import com.worktime.adapter.input.web.dto.payroll.WageDetail
+import com.worktime.adapter.input.web.dto.summary.DailySummary
+import com.worktime.adapter.input.web.dto.summary.PeriodInfo
+import com.worktime.adapter.input.web.dto.summary.WorkSummaryResponse
+import com.worktime.adapter.input.web.dto.worklog.WorkLogResponse
+import com.worktime.application.port.input.PayrollUseCase
+import com.worktime.application.port.input.WageContractUseCase
+import com.worktime.application.port.output.WorkLogRepository
+import com.worktime.application.port.output.WorkerRepository
+import com.worktime.domain.exception.BusinessException
+import com.worktime.domain.exception.ResourceNotFoundException
+import com.worktime.domain.model.WorkLog
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.util.*
+
+/**
+ * Service implementing Payroll and Work Summary business logic.
+ */
+@Service
+@Transactional(readOnly = true)
+class PayrollService(
+    private val workLogRepository: WorkLogRepository,
+    private val workerRepository: WorkerRepository,
+    private val wageContractUseCase: WageContractUseCase
+) : PayrollUseCase {
+    
+    override fun getWorkSummary(
+        workerId: UUID,
+        from: LocalDate,
+        to: LocalDate
+    ): WorkSummaryResponse {
+        validateDateRange(from, to)
+        
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        
+        // Convert LocalDate to OffsetDateTime for query
+        val fromDateTime = from.atStartOfDay().atOffset(ZoneOffset.UTC)
+        val toDateTime = to.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)
+        
+        // Find completed work logs in range
+        val workLogs = workLogRepository.findCompletedWorkLogsInRange(
+            worker = worker,
+            startTime = fromDateTime,
+            endTime = toDateTime
+        )
+        
+        // Calculate total minutes
+        val totalMinutes = workLogs.sumOf { workLog ->
+            workLog.calculateDuration()?.toMinutes() ?: 0L
+        }
+        
+        // Group by date for daily summaries
+        val dailySummaries = workLogs
+            .groupBy { workLog ->
+                workLog.clockInAt.toLocalDate()
+            }
+            .map { (date, logs) ->
+                val dailyMinutes = logs.sumOf { it.calculateDuration()?.toMinutes() ?: 0L }
+                DailySummary(
+                    date = date,
+                    totalMinutes = dailyMinutes,
+                    workLogCount = logs.size
+                )
+            }
+            .sortedBy { it.date }
+        
+        val workLogResponses = workLogs.map { WorkLogResponse.from(it) }
+        
+        return WorkSummaryResponse(
+            workerId = worker.id,
+            workerName = worker.name,
+            period = PeriodInfo(from, to),
+            totalHours = totalMinutes / 60,
+            totalMinutes = totalMinutes,
+            workLogCount = workLogs.size,
+            workLogs = workLogResponses,
+            dailySummaries = dailySummaries
+        )
+    }
+    
+    override fun calculatePayroll(
+        workerId: UUID,
+        from: LocalDate,
+        to: LocalDate
+    ): PayrollResponse {
+        validateDateRange(from, to)
+        
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        
+        // Convert LocalDate to OffsetDateTime for query
+        val fromDateTime = from.atStartOfDay().atOffset(ZoneOffset.UTC)
+        val toDateTime = to.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)
+        
+        // Find completed work logs in range
+        val workLogs = workLogRepository.findCompletedWorkLogsInRange(
+            worker = worker,
+            startTime = fromDateTime,
+            endTime = toDateTime
+        )
+        
+        // Calculate wage details for each work log
+        val wageDetails = workLogs.map { workLog ->
+            calculateWageDetailForWorkLog(workLog)
+        }
+        
+        // Calculate totals
+        val totalPay = wageDetails.sumOf { it.pay }
+        val totalHours = wageDetails.sumOf { it.hours }
+        
+        return PayrollResponse(
+            workerId = worker.id,
+            workerName = worker.name,
+            period = PeriodInfo(from, to),
+            totalPay = totalPay,
+            totalHours = totalHours,
+            wageDetails = wageDetails
+        )
+    }
+    
+    /**
+     * Calculate wage detail for a single work log
+     */
+    private fun calculateWageDetailForWorkLog(workLog: WorkLog): WageDetail {
+        val duration = workLog.calculateDuration()
+            ?: throw BusinessException("Cannot calculate pay for incomplete work log: ${workLog.id}")
+        
+        val hours = duration.toMinutes() / 60.0
+        val date = workLog.clockInAt.toLocalDate()
+        
+        // Get wage contract for the work date
+        val wageInfo = wageContractUseCase.getWageOnDate(workLog.worker.id, date)
+        
+        val hourlyWage = wageInfo.hourlyWage
+        val pay = if (hourlyWage != null) {
+            hourlyWage.multiply(BigDecimal.valueOf(hours))
+                .setScale(0, RoundingMode.HALF_UP)
+        } else {
+            BigDecimal.ZERO
+        }
+        
+        return WageDetail(
+            workLogId = workLog.id,
+            date = date,
+            hours = hours,
+            hourlyWage = hourlyWage,
+            pay = pay
+        )
+    }
+    
+    /**
+     * Validate date range
+     */
+    private fun validateDateRange(from: LocalDate, to: LocalDate) {
+        if (from.isAfter(to)) {
+            throw BusinessException("Start date must be before or equal to end date (from: $from, to: $to)")
+        }
+    }
+}

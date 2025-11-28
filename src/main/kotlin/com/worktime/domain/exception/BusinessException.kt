@@ -1,9 +1,8 @@
 package com.worktime.domain.exception
 
 /**
- * Exception thrown when a business rule is violated.
- * E.g., wage contract period overlap, invalid state transitions, etc.
+ * Base exception for business logic violations.
  */
-class BusinessException(
+open class BusinessException(
     message: String
 ) : RuntimeException(message)

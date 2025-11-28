@@ -1,8 +1,7 @@
 package com.worktime.adapter.input.web
 
 import com.worktime.adapter.input.web.dto.ErrorResponse
-import com.worktime.domain.exception.BusinessException
-import com.worktime.domain.exception.ResourceNotFoundException
+import com.worktime.domain.exception.*
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.validation.FieldError
@@ -40,6 +39,34 @@ class GlobalExceptionHandler {
             status = HttpStatus.BAD_REQUEST.value(),
             error = "Bad Request",
             message = ex.message ?: "Business rule violation",
+            path = request.getDescription(false).removePrefix("uri=")
+        )
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
+    }
+
+    @ExceptionHandler(ScheduleConflictException::class, WorkLogConflictException::class)
+    fun handleConflictException(
+        ex: BusinessException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            status = HttpStatus.CONFLICT.value(),
+            error = "Conflict",
+            message = ex.message ?: "Resource conflict",
+            path = request.getDescription(false).removePrefix("uri=")
+        )
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse)
+    }
+
+    @ExceptionHandler(InvalidScheduleStateException::class, InvalidWorkLogStateException::class)
+    fun handleInvalidStateException(
+        ex: BusinessException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            status = HttpStatus.BAD_REQUEST.value(),
+            error = "Invalid State",
+            message = ex.message ?: "Invalid state transition",
             path = request.getDescription(false).removePrefix("uri=")
         )
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
