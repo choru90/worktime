@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import java.time.LocalDate
 import java.util.*
@@ -23,6 +24,7 @@ class PayrollController(
     
     @GetMapping("/work-summary")
     @Operation(summary = "근무 요약 조회", description = "근로자의 기간별 근무 시간 요약을 조회합니다")
+    @PreAuthorize("hasAnyRole('OWNER', 'WORKER')")
     fun getWorkSummary(
         @PathVariable workerId: UUID,
         @RequestParam
@@ -38,7 +40,9 @@ class PayrollController(
     
     @GetMapping("/payroll")
     @Operation(summary = "급여 계산", description = "근로자의 기간별 급여를 계산합니다")
+    @PreAuthorize("hasAnyRole('OWNER', 'WORKER')")
     fun calculatePayroll(
+
         @PathVariable workerId: UUID,
         @RequestParam
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)

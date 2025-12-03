@@ -57,6 +57,21 @@ class GlobalExceptionHandler {
         )
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse)
     }
+    
+    @ExceptionHandler(InvalidCredentialsException::class)
+    fun handleInvalidCredentialsException(
+        ex: InvalidCredentialsException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            status = HttpStatus.UNAUTHORIZED.value(),
+            error = "Unauthorized",
+            message = ex.message ?: "Invalid credentials",
+            path = request.getDescription(false).removePrefix("uri=")
+        )
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse)
+    }
+
 
     @ExceptionHandler(InvalidScheduleStateException::class, InvalidWorkLogStateException::class)
     fun handleInvalidStateException(

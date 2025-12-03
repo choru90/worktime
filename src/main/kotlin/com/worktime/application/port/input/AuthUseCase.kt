@@ -1,0 +1,13 @@
+package com.worktime.application.port.input
+
+import com.worktime.adapter.input.web.dto.auth.LoginRequest
+import com.worktime.adapter.input.web.dto.auth.LoginResponse
+import com.worktime.adapter.input.web.dto.auth.SignUpRequest
+
+/**
+ * 인증 관련 Input Port
+ */
+interface AuthUseCase {
+    fun signUp(request: SignUpRequest): LoginResponse
+    fun login(request: LoginRequest): LoginResponse
+}

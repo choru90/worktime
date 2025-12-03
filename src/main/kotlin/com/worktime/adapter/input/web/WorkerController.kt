@@ -8,18 +8,22 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import java.util.*
 
 /**
  * REST Controller for Worker operations.
+ * OWNER 권한만 접근 가능
  */
 @RestController
 @RequestMapping("/api/workers")
 @Tag(name = "근로자", description = "근로자 관리 API")
+@PreAuthorize("hasRole('OWNER')")
 class WorkerController(
     private val workerUseCase: WorkerUseCase
 ) {
+
 
     @PostMapping
     @Operation(

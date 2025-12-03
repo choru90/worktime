@@ -29,8 +29,13 @@ springdoc:
 server:
   port: 8080
 
+jwt:
+  secret: your-256-bit-secret-key-change-this-in-production-must-be-at-least-256-bits-long
+  expiration: 86400000  # 24시간 (밀리초)
+
 logging:
   level:
-    com.example.demo: DEBUG
+    com.worktime: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
