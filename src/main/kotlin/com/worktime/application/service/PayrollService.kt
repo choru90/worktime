@@ -124,7 +124,38 @@ class PayrollService(
             totalPay = totalPay,
             totalHours = totalHours,
             wageDetails = wageDetails
-        )
+        )    }
+    
+    override fun getMonthlyPayrollSummary(
+        year: Int,
+        month: Int,
+        workerId: UUID?
+    ): List<PayrollResponse> {
+        // Validate year and month
+        if (year < 1900 || year > 2100) {
+            throw BusinessException("Invalid year: $year")
+        }
+        if (month < 1 || month > 12) {
+            throw BusinessException("Invalid month: $month")
+        }
+        
+        // Calculate date range for the month
+        val from = LocalDate.of(year, month, 1)
+        val to = from.plusMonths(1).minusDays(1)
+        
+        // Get workers to calculate payroll for
+        val workers = if (workerId != null) {
+            val worker = workerRepository.findById(workerId)
+                ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+            listOf(worker)
+        } else {
+            workerRepository.findAll()
+        }
+        
+        // Calculate payroll for each worker
+        return workers.map { worker ->
+            calculatePayroll(worker.id, from, to)
+        }
     }
     
     /**

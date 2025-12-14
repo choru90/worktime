@@ -32,6 +32,13 @@ class ScheduleRepositoryAdapter(
         return scheduleJpaRepository.findByWorkerAndTimeRange(worker, startTime, endTime)
     }
     
+    override fun findByTimeRange(
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<Schedule> {
+        return scheduleJpaRepository.findByTimeRange(startTime, endTime)
+    }
+    
     override fun findByWorkerAndStatusAndTimeRange(
         worker: Worker,
         status: ScheduleStatus,

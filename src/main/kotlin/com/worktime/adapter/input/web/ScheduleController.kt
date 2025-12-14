@@ -4,12 +4,14 @@ import com.worktime.adapter.input.web.dto.schedule.ScheduleCreateRequest
 import com.worktime.adapter.input.web.dto.schedule.ScheduleListResponse
 import com.worktime.adapter.input.web.dto.schedule.ScheduleResponse
 import com.worktime.application.port.input.ScheduleUseCase
+import com.worktime.domain.model.ScheduleStatus
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.web.bind.annotation.*
 import java.time.OffsetDateTime
 import java.util.*
@@ -82,6 +84,26 @@ class ScheduleController(
         to: OffsetDateTime?
     ): ResponseEntity<ScheduleListResponse> {
         val schedules = scheduleUseCase.getSchedulesByWorker(workerId, from, to)
+        val response = ScheduleListResponse.from(schedules)
+        return ResponseEntity.ok(response)
+    }
+    
+    @GetMapping("/schedules")
+    @Operation(summary = "전체 스케줄 조회", description = "모든 근로자의 스케줄을 조회합니다 (OWNER 전용)")
+    @PreAuthorize("hasRole('OWNER')")
+    fun getAllSchedules(
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        from: OffsetDateTime?,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        to: OffsetDateTime?,
+        @RequestParam(required = false)
+        workerId: UUID?,
+        @RequestParam(required = false)
+        status: ScheduleStatus?
+    ): ResponseEntity<ScheduleListResponse> {
+        val schedules = scheduleUseCase.getAllSchedules(from, to, workerId, status)
         val response = ScheduleListResponse.from(schedules)
         return ResponseEntity.ok(response)
     }

@@ -103,6 +103,26 @@ class WorkLog(
         return status == WorkLogStatus.ONGOING && clockOutAt == null
     }
     
+    /**
+     * 근무 기록을 확정합니다 (사장이 검수 완료)
+     */
+    fun confirm() {
+        require(status == WorkLogStatus.COMPLETED) {
+            "완료된 근무 기록만 확정할 수 있습니다"
+        }
+        status = WorkLogStatus.CONFIRMED
+    }
+    
+    /**
+     * 근무 기록을 반려합니다 (사장이 거절)
+     */
+    fun reject() {
+        require(status == WorkLogStatus.COMPLETED) {
+            "완료된 근무 기록만 반려할 수 있습니다"
+        }
+        status = WorkLogStatus.REJECTED
+    }
+    
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is WorkLog) return false

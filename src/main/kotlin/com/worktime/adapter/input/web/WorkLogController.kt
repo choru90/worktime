@@ -67,4 +67,44 @@ class WorkLogController(
         val workLogs = workLogUseCase.getWorkLogsByWorker(workerId, from, to)
         return ResponseEntity.ok(workLogs)
     }
+    
+    @GetMapping("/work-logs")
+    @Operation(summary = "전체 근무 기록 조회", description = "모든 근로자의 근무 기록을 조회합니다 (OWNER 전용)")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('OWNER')")
+    fun getAllWorkLogs(
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        from: OffsetDateTime?,
+        @RequestParam(required = false)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+        to: OffsetDateTime?,
+        @RequestParam(required = false)
+        workerId: UUID?,
+        @RequestParam(required = false)
+        status: com.worktime.domain.model.WorkLogStatus?
+    ): ResponseEntity<List<WorkLogResponse>> {
+        val workLogs = workLogUseCase.getAllWorkLogs(from, to, workerId, status)
+        return ResponseEntity.ok(workLogs)
+    }
+    
+    @PostMapping("/work-logs/{workLogId}/confirm")
+    @Operation(summary = "근무 기록 확정", description = "근무 기록을 확정합니다 (OWNER 전용)")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('OWNER')")
+    fun confirmWorkLog(
+        @PathVariable workLogId: UUID
+    ): ResponseEntity<WorkLogResponse> {
+        val response = workLogUseCase.confirmWorkLog(workLogId)
+        return ResponseEntity.ok(response)
+    }
+    
+    @PostMapping("/work-logs/{workLogId}/reject")
+    @Operation(summary = "근무 기록 반려", description = "근무 기록을 반려합니다 (OWNER 전용)")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('OWNER')")
+    fun rejectWorkLog(
+        @PathVariable workLogId: UUID,
+        @Valid @RequestBody(required = false) request: com.worktime.adapter.input.web.dto.worklog.WorkLogRejectRequest?
+    ): ResponseEntity<WorkLogResponse> {
+        val response = workLogUseCase.rejectWorkLog(workLogId, request?.reason)
+        return ResponseEntity.ok(response)
+    }
 }

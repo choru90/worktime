@@ -54,6 +54,20 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
     ): List<WorkLog>
     
     /**
+     * Find all work logs within a time range (OWNER용)
+     */
+    @Query("""
+        SELECT wl FROM WorkLog wl 
+        WHERE wl.clockInAt >= :startTime 
+        AND (wl.clockOutAt IS NULL OR wl.clockOutAt <= :endTime)
+        ORDER BY wl.clockInAt DESC
+    """)
+    fun findByTimeRange(
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime
+    ): List<WorkLog>
+    
+    /**
      * Find completed work logs for a worker within a time range
      */
     @Query("""

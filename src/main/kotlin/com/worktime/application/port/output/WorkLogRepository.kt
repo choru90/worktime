@@ -20,6 +20,11 @@ interface WorkLogRepository {
         endTime: OffsetDateTime
     ): List<WorkLog>
     
+    fun findByTimeRange(
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<WorkLog>
+    
     fun findCompletedWorkLogsInRange(
         worker: Worker,
         startTime: OffsetDateTime,

@@ -48,6 +48,20 @@ interface ScheduleJpaRepository : JpaRepository<Schedule, UUID> {
     ): List<Schedule>
     
     /**
+     * Find all schedules within a time range (OWNER용)
+     */
+    @Query("""
+        SELECT s FROM Schedule s 
+        WHERE s.startAtUtc >= :startTime 
+        AND s.endAtUtc <= :endTime
+        ORDER BY s.startAtUtc ASC
+    """)
+    fun findByTimeRange(
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime
+    ): List<Schedule>
+    
+    /**
      * Find schedules for a worker within a time range with specific status
      */
     @Query("""

@@ -11,6 +11,7 @@ import com.worktime.domain.exception.InvalidWorkLogStateException
 import com.worktime.domain.exception.ResourceNotFoundException
 import com.worktime.domain.exception.WorkLogConflictException
 import com.worktime.domain.model.WorkLog
+import com.worktime.domain.model.WorkLogStatus
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.OffsetDateTime
@@ -103,5 +104,67 @@ class WorkLogService(
         }
         
         return workLogs.map { WorkLogResponse.from(it) }
+    }
+    
+    override fun getAllWorkLogs(
+        from: OffsetDateTime?,
+        to: OffsetDateTime?,
+        workerId: UUID?,
+        status: WorkLogStatus?
+    ): List<WorkLogResponse> {
+        // Filter by workerId if provided
+        val workLogs = when {
+            workerId != null -> {
+                val worker = workerRepository.findById(workerId)
+                    ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+                
+                if (from != null && to != null) {
+                    workLogRepository.findByWorkerAndTimeRange(worker, from, to)
+                } else {
+                    emptyList()
+                }
+            }
+            from != null && to != null -> {
+                workLogRepository.findByTimeRange(from, to)
+            }
+            else -> emptyList()
+        }
+        
+        // Filter by status if provided
+        val filteredLogs = if (status != null) {
+            workLogs.filter { it.status == status }
+        } else {
+            workLogs
+        }
+        
+        return filteredLogs.map { WorkLogResponse.from(it) }
+    }
+    
+    override fun confirmWorkLog(workLogId: UUID): WorkLogResponse {
+        val workLog = workLogRepository.findById(workLogId)
+            ?: throw ResourceNotFoundException("WorkLog not found with id: $workLogId")
+        
+        try {
+            workLog.confirm()
+        } catch (e: IllegalStateException) {
+            throw InvalidWorkLogStateException(e.message ?: "Cannot confirm work log in current state")
+        }
+        
+        val savedWorkLog = workLogRepository.save(workLog)
+        return WorkLogResponse.from(savedWorkLog)
+    }
+    
+    override fun rejectWorkLog(workLogId: UUID, reason: String?): WorkLogResponse {
+        val workLog = workLogRepository.findById(workLogId)
+            ?: throw ResourceNotFoundException("WorkLog not found with id: $workLogId")
+        
+        try {
+            workLog.reject()
+        } catch (e: IllegalStateException) {
+            throw InvalidWorkLogStateException(e.message ?: "Cannot reject work log in current state")
+        }
+        
+        val savedWorkLog = workLogRepository.save(workLog)
+        return WorkLogResponse.from(savedWorkLog)
     }
 }

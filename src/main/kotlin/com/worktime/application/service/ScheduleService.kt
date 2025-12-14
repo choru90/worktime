@@ -130,4 +130,38 @@ class ScheduleService(
         
         return schedules.map { ScheduleResponse.from(it) }
     }
+    
+    override fun getAllSchedules(
+        from: OffsetDateTime?,
+        to: OffsetDateTime?,
+        workerId: UUID?,
+        status: ScheduleStatus?
+    ): List<ScheduleResponse> {
+        // Filter by workerId if provided
+        val schedules = when {
+            workerId != null -> {
+                val worker = workerRepository.findById(workerId)
+                    ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+                
+                if (from != null && to != null) {
+                    scheduleRepository.findByWorkerAndTimeRange(worker, from, to)
+                } else {
+                    emptyList()
+                }
+            }
+            from != null && to != null -> {
+                scheduleRepository.findByTimeRange(from, to)
+            }
+            else -> emptyList()
+        }
+        
+        // Filter by status if provided
+        val filteredSchedules = if (status != null) {
+            schedules.filter { it.status == status }
+        } else {
+            schedules
+        }
+        
+        return filteredSchedules.map { ScheduleResponse.from(it) }
+    }
 }

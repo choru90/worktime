@@ -27,4 +27,13 @@ interface PayrollUseCase {
         from: LocalDate,
         to: LocalDate
     ): PayrollResponse
+    
+    /**
+     * 월별 급여 요약 조회 (OWNER 전용)
+     */
+    fun getMonthlyPayrollSummary(
+        year: Int,
+        month: Int,
+        workerId: UUID?
+    ): List<PayrollResponse>
 }

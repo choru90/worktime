@@ -31,6 +31,13 @@ class WorkLogRepositoryAdapter(
         return workLogJpaRepository.findByWorkerAndTimeRange(worker, startTime, endTime)
     }
     
+    override fun findByTimeRange(
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<WorkLog> {
+        return workLogJpaRepository.findByTimeRange(startTime, endTime)
+    }
+    
     override fun findCompletedWorkLogsInRange(
         worker: Worker,
         startTime: OffsetDateTime,

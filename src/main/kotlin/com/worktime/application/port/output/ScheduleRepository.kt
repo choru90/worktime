@@ -21,6 +21,11 @@ interface ScheduleRepository {
         endTime: OffsetDateTime
     ): List<Schedule>
     
+    fun findByTimeRange(
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<Schedule>
+    
     fun findByWorkerAndStatusAndTimeRange(
         worker: Worker,
         status: ScheduleStatus,

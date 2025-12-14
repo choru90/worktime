@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: worktime
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/demo_db
+    username: demo_user
+    password: demo_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    open-in-view: false
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+server:
+  port: 8080
+
+jwt:
+  secret: your-256-bit-secret-key-change-this-in-production-must-be-at-least-256-bits-long
+  expiration: 86400000  # 24시간 (밀리초)
+
+logging:
+  level:
+    com.worktime: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+

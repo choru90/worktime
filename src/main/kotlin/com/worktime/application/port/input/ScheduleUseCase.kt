@@ -43,4 +43,14 @@ interface ScheduleUseCase {
         from: OffsetDateTime?,
         to: OffsetDateTime?
     ): List<ScheduleResponse>
+    
+    /**
+     * 전체 스케줄 조회 (OWNER용, 필터 지원)
+     */
+    fun getAllSchedules(
+        from: OffsetDateTime?,
+        to: OffsetDateTime?,
+        workerId: UUID?,
+        status: com.worktime.domain.model.ScheduleStatus?
+    ): List<ScheduleResponse>
 }
