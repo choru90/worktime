@@ -44,6 +44,15 @@ class DashboardController(
         return ResponseEntity.ok(summary)
     }
 
+    @GetMapping("/actions")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "대시보드 조치 필요 사항 조회", description = "승인 대기 스케줄, 퇴근 미체크, 지각 등 조치가 필요한 항목을 조회합니다.")
+    fun getActions(): ResponseEntity<List<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse>> {
+        val ownerId = getCurrentOwnerId()
+        val actions = dashboardReadUseCase.getDashboardActions(ownerId)
+        return ResponseEntity.ok(actions)
+    }
+
     private fun getCurrentOwnerId(): UUID {
         val authentication = SecurityContextHolder.getContext().authentication
         // name이 ID(UUID)라고 가정하는 컨벤션 따름

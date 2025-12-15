@@ -123,4 +123,20 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         @Param("startTime") startTime: OffsetDateTime,
         @Param("endTime") endTime: OffsetDateTime
     ): List<WorkLog>
+    
+    /**
+     * Find ongoing work logs started before threshold
+     */
+    @Query("""
+        SELECT wl FROM WorkLog wl 
+        WHERE wl.worker.owner.id = :ownerId
+        AND wl.status = 'ONGOING'
+        AND wl.clockInAt < :thresholdTime
+        AND wl.clockOutAt IS NULL
+        ORDER BY wl.clockInAt ASC
+    """)
+    fun findOngoingOlderThan(
+        @Param("ownerId") ownerId: UUID,
+        @Param("thresholdTime") thresholdTime: OffsetDateTime
+    ): List<WorkLog>
 }

@@ -19,5 +19,20 @@ interface DashboardReadUseCase {
      * @param date 기준 날짜 (KST)
      * @return 대시보드 요약 응답 (KPI 데이터)
      */
+    /**
+     * 대시보드 조치 필요 사항 조회 (Action Center)
+     * 
+     * @param ownerId 고용주 ID
+     * @return 조치 필요 사항 목록 (중요도, 시간순 정렬)
+     */
+    fun getDashboardActions(ownerId: UUID): List<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse>
+
+    /**
+     * 대시보드 KPI 요약 조회
+     * 
+     * @param ownerId 고용주 ID
+     * @param date 기준 날짜 (KST)
+     * @return 대시보드 요약 응답 (KPI 데이터)
+     */
     fun getDashboardSummary(ownerId: UUID, date: LocalDate): com.worktime.adapter.input.web.dto.dashboard.DashboardSummaryResponse
 }

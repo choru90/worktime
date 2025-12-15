@@ -48,4 +48,16 @@ interface WorkLogRepository {
         startTime: OffsetDateTime,
         endTime: OffsetDateTime
     ): List<WorkLog>
+    
+    /**
+     * Find ongoing work logs started before the given time (for detecting missing checkout)
+     * 
+     * @param ownerId 고용주 ID
+     * @param thresholdTime 기준 시간 (이 시간 이전에 시작된 ONGOING 기록 조회)
+     * @return 워크로그 목록
+     */
+    fun findOngoingWorkLogsOlderThan(
+        ownerId: UUID,
+        thresholdTime: OffsetDateTime
+    ): List<WorkLog>
 }

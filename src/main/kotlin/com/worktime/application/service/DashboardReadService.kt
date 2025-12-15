@@ -11,6 +11,7 @@ import com.worktime.domain.util.DashboardDateRange
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.util.*
 import kotlin.math.max
 
@@ -128,6 +129,114 @@ class DashboardReadService(
         )
     }
     
+    override fun getDashboardActions(ownerId: UUID): List<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse> {
+        val actions = mutableListOf<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse>()
+        
+        // 1. Pending Schedules (Approval Needed)
+        val pendingSchedules = scheduleRepository.findByOwnerAndStatusIn(
+            ownerId,
+            listOf(
+                com.worktime.domain.model.ScheduleStatus.REQUESTED_BY_WORKER,
+                com.worktime.domain.model.ScheduleStatus.PROPOSED_BY_OWNER
+            )
+        )
+        
+        actions.addAll(pendingSchedules.map { schedule ->
+            com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse(
+                id = schedule.id,
+                type = com.worktime.domain.model.DashboardActionType.PENDING_APPROVAL,
+                title = "스케줄 승인 요청",
+                description = "${schedule.worker.name}님이 근무 스케줄 승인을 요청했습니다.",
+                workerName = schedule.worker.name,
+                createdAt = schedule.startAtUtc, // 스케줄 시작 시간을 기준 (또는 생성시간)
+                severity = com.worktime.adapter.input.web.dto.dashboard.ActionSeverity.LOW
+            )
+        })
+        
+        // 2. Missing Checkout (Working too long / Forgot checkout)
+        // Rule: Ongoing worklogs started before today (KST midnight)
+        val nowKst = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul"))
+        val todayMidnightKst = nowKst.toLocalDate().atStartOfDay(java.time.ZoneId.of("Asia/Seoul"))
+        val thresholdUtc = todayMidnightKst.toOffsetDateTime()
+        
+        val missingCheckoutLogs = workLogRepository.findOngoingWorkLogsOlderThan(ownerId, thresholdUtc)
+        
+        actions.addAll(missingCheckoutLogs.map { workLog ->
+            com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse(
+                id = workLog.id,
+                type = com.worktime.domain.model.DashboardActionType.MISSING_CHECKOUT,
+                title = "퇴근 미체크",
+                description = "${workLog.worker.name}님이 퇴근 처리를 하지 않았습니다. (어제 이전 출근)",
+                workerName = workLog.worker.name,
+                createdAt = workLog.clockInAt,
+                severity = com.worktime.adapter.input.web.dto.dashboard.ActionSeverity.HIGH
+            )
+        })
+        
+        // 3. Missing Checkin (Late / No-show)
+        // Rule: Today's schedule started > 30 mins ago, but no work log
+        // Get today's schedules
+        val todayRange = DashboardDateRange.todayRange(LocalDate.now(java.time.ZoneId.of("Asia/Seoul")))
+        val todaySchedules = scheduleRepository.findByOwnerAndStatusIn(
+            ownerId, 
+            listOf(com.worktime.domain.model.ScheduleStatus.CONFIRMED)
+        ).filter { 
+            // Filter manually for time range as we reused status query method
+            // Improve: create specific query if performance issue
+            !it.startAtUtc.isBefore(todayRange.start) && it.startAtUtc.isBefore(todayRange.endExclusive)
+        }
+        
+        // Get today's worklogs
+        val todayWorkLogs = workLogRepository.findByOwnerAndTimeRange(
+            ownerId, todayRange.start, todayRange.endExclusive
+        )
+        
+        val nowUtc = OffsetDateTime.now()
+        val lateBufferMinutes = 30L
+        
+        for (schedule in todaySchedules) {
+            // Check if schedule start time + buffer < now
+            if (schedule.startAtUtc.plusMinutes(lateBufferMinutes).isBefore(nowUtc)) {
+                // Check if worker has checked in for this schedule (or any checkin around start time)
+                // Simplify: Check if any worklog exists for this worker today
+                // Ideally: Match schedule ID or check overlapping time
+                val hasWorkLog = todayWorkLogs.any { wl -> 
+                    wl.worker.id == schedule.worker.id && 
+                    // Simple logic: WorkLog started within reasonable range of schedule start?
+                    // Or just "Has any worklog today"? User req: "Not Checked In"
+                    // Let's implement: No worklog covering this schedule's start time
+                    // Start time of worklog is usually close to schedule start
+                    true // For MVP, let's verify if *any* worklog exists for this worker today.
+                         // If no worklog at all -> Missing Checkin.
+                         // Accurate matching is complex due to flexible hours.
+                }
+                
+                // If specific worker has NO worklogs today, but has a schedule that started > 30mins ago -> LATE
+                val workerHasLog = todayWorkLogs.any { it.worker.id == schedule.worker.id }
+                
+                if (!workerHasLog) {
+                    actions.add(com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse(
+                        id = schedule.id,
+                        type = com.worktime.domain.model.DashboardActionType.LATE_ARRIVAL, // Or MISSING_CHECKIN logic
+                        title = "출근 미체크 (지각/결근)",
+                        description = "${schedule.worker.name}님이 출근 시간이 지났으나 기록이 없습니다.",
+                        workerName = schedule.worker.name,
+                        createdAt = schedule.startAtUtc,
+                        severity = com.worktime.adapter.input.web.dto.dashboard.ActionSeverity.MEDIUM
+                    ))
+                }
+            }
+        }
+        
+        // Sort: High Severity first, then Oldest first
+        return actions.sortedWith(
+            compareBy<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse> { it.severity } // Enum ordinal: HIGH(0) < MEDIUM(1) ... Wait, we want High first?
+                // Enum definition: HIGH, MEDIUM, LOW. Ordinal 0, 1, 2.
+                // sortedBy uses natural order (0, 1, 2) -> HIGH comes first.
+                .thenBy { it.createdAt }
+        )
+    }
+
     private fun calculateActionNeededCount(ownerId: UUID, todayKpi: TodayKpiDto): Int {
         // 1. Pending Schedules
         val pendingSchedules = scheduleRepository.findByOwnerAndStatusIn(

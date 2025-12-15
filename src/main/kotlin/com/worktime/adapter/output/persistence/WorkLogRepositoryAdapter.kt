@@ -61,4 +61,11 @@ class WorkLogRepositoryAdapter(
     ): List<WorkLog> {
         return workLogJpaRepository.findByOwnerAndTimeRange(ownerId, startTime, endTime)
     }
+
+    override fun findOngoingWorkLogsOlderThan(
+        ownerId: UUID,
+        thresholdTime: OffsetDateTime
+    ): List<WorkLog> {
+        return workLogJpaRepository.findOngoingOlderThan(ownerId, thresholdTime)
+    }
 }
