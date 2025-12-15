@@ -17,13 +17,18 @@ import java.util.*
 @Transactional
 class WorkerService(
     private val workerRepository: WorkerRepository,
-    private val wageContractUseCase: WageContractUseCase
+    private val wageContractUseCase: WageContractUseCase,
+    private val userRepository: com.worktime.application.port.output.UserRepository
 ) : WorkerUseCase {
 
-    override fun createWorker(request: WorkerCreateRequest): WorkerResponse {
+    override fun createWorker(ownerId: UUID, request: WorkerCreateRequest): WorkerResponse {
+        val owner = userRepository.findById(ownerId)
+            ?: throw ResourceNotFoundException("Owner not found with id: $ownerId")
+
         val worker = Worker(
             name = request.name,
-            phoneNumber = request.phoneNumber
+            phoneNumber = request.phoneNumber,
+            owner = owner
         )
         
         val savedWorker = workerRepository.save(worker)

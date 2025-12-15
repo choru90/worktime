@@ -89,4 +89,34 @@ interface ScheduleJpaRepository : JpaRepository<Schedule, UUID> {
         ORDER BY s.startAtUtc ASC
     """)
     fun findPendingSchedules(@Param("worker") worker: Worker): List<Schedule>
+    
+    /**
+     * Count schedules in time range excluding canceled/rejected for specific owner
+     */
+    @Query("""
+        SELECT COUNT(s) FROM Schedule s 
+        WHERE s.worker.owner.id = :ownerId 
+        AND s.startAtUtc >= :startTime 
+        AND s.startAtUtc < :endTime
+        AND s.status NOT IN ('CANCELED', 'REJECTED')
+    """)
+    fun countByOwnerAndTimeRangeExcludingCanceledAndRejected(
+        @Param("ownerId") ownerId: UUID,
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime
+    ): Long
+    
+    /**
+     * Find schedules by status list for specific owner
+     */
+    @Query("""
+        SELECT s FROM Schedule s 
+        WHERE s.worker.owner.id = :ownerId
+        AND s.status IN :statuses
+        ORDER BY s.startAtUtc ASC
+    """)
+    fun findByOwnerAndStatusIn(
+        @Param("ownerId") ownerId: UUID,
+        @Param("statuses") statuses: List<ScheduleStatus>
+    ): List<Schedule>
 }

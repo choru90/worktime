@@ -20,6 +20,10 @@ class Worker(
     @Column(nullable = false, length = 20)
     var phoneNumber: String,
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false, foreignKey = ForeignKey(name = "fk_worker_owner"))
+    var owner: User,
+    
     @Column(nullable = false)
     var active: Boolean = true
 ) : BaseEntity() {

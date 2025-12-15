@@ -53,4 +53,12 @@ class WorkLogRepositoryAdapter(
     override fun hasOngoingWorkLog(worker: Worker): Boolean {
         return workLogJpaRepository.hasOngoingWorkLog(worker)
     }
+
+    override fun findByOwnerAndTimeRange(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<WorkLog> {
+        return workLogJpaRepository.findByOwnerAndTimeRange(ownerId, startTime, endTime)
+    }
 }

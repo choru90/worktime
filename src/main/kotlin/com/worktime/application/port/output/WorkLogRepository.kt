@@ -34,4 +34,18 @@ interface WorkLogRepository {
     fun findCurrentOngoingWorkLog(worker: Worker): WorkLog?
     
     fun hasOngoingWorkLog(worker: Worker): Boolean
+    
+    /**
+     * Find work logs in time range for specific owner
+     * 
+     * @param ownerId 고용주 ID
+     * @param startTime 시작 시간 (inclusive)
+     * @param endTime 종료 시간 (exclusive)
+     * @return 워크로그 목록
+     */
+    fun findByOwnerAndTimeRange(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<WorkLog>
 }

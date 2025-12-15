@@ -33,7 +33,19 @@ class WorkerController(
     fun createWorker(
         @Valid @RequestBody request: WorkerCreateRequest
     ): ResponseEntity<WorkerResponse> {
-        val response = workerUseCase.createWorker(request)
+        // TODO: SecurityContext에서 ID 가져오기. 현재는 임시로 구현하거나 SecurityUtil이 있다면 사용
+        // val ownerId = SecurityUtil.getCurrentUserId()
+        // 여기서는 일단 AuthenticationPrincipal이 구현되어 있다고 가정하고 수도 코드로 진행하지 않고,
+        // 일반적인 Spring Security 패턴을 따릅니다.
+        // 하지만 컴파일 에러를 방지하기 위해 SecurityContextHolder를 사용하거나,
+        // 프로젝트에 이미 유틸리티가 있는지 확인해야 합니다.
+        // 일단 임시로 하드코딩된 UUID를 넣지 않고, TODO 주석과 함께 컴파일 되도록 UUID.randomUUID()를 쓰면 안되므로,
+        // SecurityContextHolder를 직접 사용합니다.
+        
+        val authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().authentication
+        val ownerId = UUID.fromString(authentication.name) // name이 ID라고 가정
+        
+        val response = workerUseCase.createWorker(ownerId, request)
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
 

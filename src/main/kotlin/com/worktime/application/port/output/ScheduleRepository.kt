@@ -41,4 +41,30 @@ interface ScheduleRepository {
         startTime: OffsetDateTime,
         endTime: OffsetDateTime
     ): List<Schedule>
+    
+    /**
+     * Count schedules in time range excluding canceled/rejected for specific owner
+     * 
+     * @param ownerId 고용주 ID
+     * @param startTime 시작 시간 (inclusive)
+     * @param endTime 종료 시간 (exclusive)
+     * @return 스케줄 개수
+     */
+    fun countByOwnerAndTimeRangeExcludingCanceledAndRejected(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): Long
+    
+    /**
+     * Find schedules by status list for specific owner
+     * 
+     * @param ownerId 고용주 ID
+     * @param statuses 조회할 상태 목록
+     * @return 스케줄 목록
+     */
+    fun findByOwnerAndStatusIn(
+        ownerId: UUID,
+        statuses: List<ScheduleStatus>
+    ): List<Schedule>
 }

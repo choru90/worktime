@@ -107,4 +107,20 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         AND wl.clockOutAt IS NULL
     """)
     fun hasOngoingWorkLog(@Param("worker") worker: Worker): Boolean
+    
+    /**
+     * Find work logs in time range for specific owner
+     */
+    @Query("""
+        SELECT wl FROM WorkLog wl 
+        WHERE wl.worker.owner.id = :ownerId
+        AND wl.clockInAt >= :startTime 
+        AND (wl.clockOutAt IS NULL OR wl.clockOutAt <= :endTime)
+        ORDER BY wl.clockInAt DESC
+    """)
+    fun findByOwnerAndTimeRange(
+        @Param("ownerId") ownerId: UUID,
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime
+    ): List<WorkLog>
 }

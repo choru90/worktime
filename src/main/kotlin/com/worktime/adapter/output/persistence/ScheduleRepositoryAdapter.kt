@@ -64,4 +64,21 @@ class ScheduleRepositoryAdapter(
             !(schedule.endAtUtc.isBefore(startTime) || schedule.startAtUtc.isAfter(endTime))
         }
     }
+
+    override fun countByOwnerAndTimeRangeExcludingCanceledAndRejected(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): Long {
+        return scheduleJpaRepository.countByOwnerAndTimeRangeExcludingCanceledAndRejected(
+            ownerId, startTime, endTime
+        )
+    }
+
+    override fun findByOwnerAndStatusIn(
+        ownerId: UUID,
+        statuses: List<ScheduleStatus>
+    ): List<Schedule> {
+        return scheduleJpaRepository.findByOwnerAndStatusIn(ownerId, statuses)
+    }
 }

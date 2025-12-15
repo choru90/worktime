@@ -15,6 +15,16 @@ interface WorkerJpaRepository : JpaRepository<Worker, UUID> {
      * Find active workers
      */
     fun findByActiveTrue(): List<Worker>
+
+    /**
+     * Find workers by active status
+     */
+    fun findByActive(active: Boolean): List<Worker>
+
+    /**
+     * Find workers by owner ID
+     */
+    fun findByOwnerId(ownerId: UUID): List<Worker>
     
     /**
      * Find worker by phone number

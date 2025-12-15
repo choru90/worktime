@@ -22,21 +22,32 @@ class WorkerServiceTest {
 
     private lateinit var workerRepository: WorkerRepository
     private lateinit var wageContractUseCase: WageContractUseCase
+    private lateinit var userRepository: com.worktime.application.port.output.UserRepository
     private lateinit var service: WorkerService
     
     private lateinit var testWorker: Worker
     private val workerId = UUID.randomUUID()
+    private val ownerId = UUID.randomUUID()
+    private val owner = com.worktime.domain.model.User(
+        id = ownerId,
+        email = "test@example.com",
+        password = "password",
+        name = "Owner",
+        role = com.worktime.domain.model.UserRole.OWNER
+    )
 
     @BeforeEach
     fun setUp() {
         workerRepository = mock(WorkerRepository::class.java)
         wageContractUseCase = mock(WageContractUseCase::class.java)
-        service = WorkerService(workerRepository, wageContractUseCase)
+        userRepository = mock(com.worktime.application.port.output.UserRepository::class.java)
+        service = WorkerService(workerRepository, wageContractUseCase, userRepository)
         
         testWorker = Worker(
             id = workerId,
             name = "Test Worker",
-            phoneNumber = "01012345678"
+            phoneNumber = "01012345678",
+            owner = owner
         )
     }
 
@@ -48,10 +59,11 @@ class WorkerServiceTest {
             phoneNumber = "01098765432"
         )
         
+        whenever(userRepository.findById(ownerId)).thenReturn(owner)
         whenever(workerRepository.save(any())).thenAnswer { it.arguments[0] }
         
         // When
-        val result = service.createWorker(request)
+        val result = service.createWorker(ownerId, request)
         
         // Then
         assertNotNull(result)

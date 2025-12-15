@@ -26,11 +26,11 @@ class WorkerRepositoryAdapter(
     }
 
     override fun findByActive(active: Boolean): List<Worker> {
-        return if (active) {
-            jpaRepository.findByActiveTrue()
-        } else {
-            jpaRepository.findAll().filter { !it.active }
-        }
+        return jpaRepository.findByActive(active)
+    }
+
+    override fun findByOwner(ownerId: UUID): List<Worker> {
+        return jpaRepository.findByOwnerId(ownerId)
     }
 
     override fun findByPhoneNumber(phoneNumber: String): Worker? {
