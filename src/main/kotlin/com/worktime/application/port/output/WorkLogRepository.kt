@@ -65,4 +65,12 @@ interface WorkLogRepository {
      * Find work logs by schedule IDs (Batch fetch)
      */
     fun findByScheduleIds(scheduleIds: List<UUID>): List<WorkLog>
+
+    /**
+     * Find all ongoing work logs for a specific owner
+     * 
+     * @param ownerId 고용주 ID
+     * @return 진행 중인 워크로그 목록
+     */
+    fun findOngoingWorkLogsByOwner(ownerId: UUID): List<WorkLog>
 }

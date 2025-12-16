@@ -81,4 +81,12 @@ class ScheduleRepositoryAdapter(
     ): List<Schedule> {
         return scheduleJpaRepository.findByOwnerAndStatusIn(ownerId, statuses)
     }
+
+    override fun findByOwnerAndTimeRange(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<Schedule> {
+        return scheduleJpaRepository.findByOwnerAndTimeRange(ownerId, startTime, endTime)
+    }
 }

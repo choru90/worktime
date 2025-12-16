@@ -190,89 +190,114 @@ class DashboardReadServiceTest {
         val schedule = Schedule(
             id = UUID.randomUUID(),
             worker = worker,
-            startAtUtc = OffsetDateTime.now(),
-            endAtUtc = OffsetDateTime.now().plusHours(9),
+            startAtUtc = OffsetDateTime.now().plusDays(1),
+            endAtUtc = OffsetDateTime.now().plusDays(1).plusHours(4),
             timezone = "Asia/Seoul",
             status = ScheduleStatus.REQUESTED_BY_WORKER
         )
-        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(listOf(schedule))
-        whenever(workLogRepository.findOngoingWorkLogsOlderThan(any(), any())).thenReturn(emptyList())
+
+        // DashboardReadService uses findByOwnerAndStatusIn
+        whenever(scheduleRepository.findByOwnerAndStatusIn(eq(ownerId), any()))
+            .thenReturn(listOf(schedule))
+            
+        // No other issues
+        whenever(workLogRepository.findOngoingWorkLogsByOwner(ownerId)).thenReturn(emptyList())
+        whenever(scheduleRepository.findByOwnerAndTimeRange(eq(ownerId), any(), any())).thenReturn(emptyList())
 
         // When
-        val result = dashboardReadService.getDashboardActions(ownerId)
+        val result = dashboardReadService.getDashboardActions(ownerId, null, 20, null)
 
         // Then
-        assertEquals(1, result.size)
-        assertEquals(DashboardActionType.PENDING_APPROVAL, result[0].type)
-        assertEquals(ActionSeverity.LOW, result[0].severity)
+        assertEquals(1, result.items.size)
+        val item = result.items[0]
+        assertEquals(DashboardActionType.PENDING_SCHEDULE_APPROVAL, item.type)
+        assertEquals(10, item.priority)
+        assertEquals("스케줄 승인 대기", item.title)
     }
 
     @Test
-    @DisplayName("Action Center: 퇴근 미체크 조회 확인 (어제 시작된 ONGOING)")
-    fun actions_missingCheckout_shouldReturnHighSeverityAction() {
+    @DisplayName("Action Center: 퇴근 미체크 조회 확인")
+    fun actions_missingCheckout_shouldReturnUrgentAction() {
         // Given
-        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(emptyList())
-        
-        val yesterdayWorkLog = WorkLog(
+        // Ongoing worklog, schedule ended 1 hour ago
+        val past = OffsetDateTime.now().minusHours(5)
+        val schedule = Schedule(
             worker = worker,
-            clockInAt = OffsetDateTime.now().minusDays(1),
-            status = WorkLogStatus.ONGOING
+            startAtUtc = past,
+            endAtUtc = past.plusHours(4), // Ended 1 hour ago
+            timezone = "Asia/Seoul"
         )
-        whenever(workLogRepository.findOngoingWorkLogsOlderThan(any(), any())).thenReturn(listOf(yesterdayWorkLog))
-
-        // When
-        val result = dashboardReadService.getDashboardActions(ownerId)
-
-        // Then
-        assertEquals(1, result.size)
-        assertEquals(DashboardActionType.MISSING_CHECKOUT, result[0].type)
-        assertEquals(ActionSeverity.HIGH, result[0].severity)
-    }
-
-    @Test
-    @DisplayName("Action Center: 지각/결근 조회 확인 (스케줄 O, 워크로그 X)")
-    fun actions_missingCheckin_shouldReturnMediumSeverityAction() {
-        // Given
-        // 오늘 스케줄 (1시간 전 시작)
-        val todaySchedule = Schedule(
+        val workLog = WorkLog(
             id = UUID.randomUUID(),
             worker = worker,
-            startAtUtc = OffsetDateTime.now().minusHours(1),
-            endAtUtc = OffsetDateTime.now().plusHours(8),
-            timezone = "Asia/Seoul",
-            status = ScheduleStatus.CONFIRMED
+            schedule = schedule,
+            clockInAt = past,
+            status = WorkLogStatus.ONGOING
         )
-        
-        // 스케줄 리포지토리는 "승인대기"용과 "오늘 지각체크"용 두 번 호출됨
-        // 첫 번째 호출 (승인대기): 빈 리스트
-        // 두 번째 호출 (오늘 스케줄): todaySchedule
-        // Matchers를 좀 더 구체적으로 쓰거나, 순서대로 리턴하거나, 메서드 시그니처가 다르므로 구분 가능
-        
-        // 1. Pending Approval Call
-        // Mockito's argThat can check list contents
-        whenever(scheduleRepository.findByOwnerAndStatusIn(
-            eq(ownerId), 
-            argThat { list -> list != null && list.contains(ScheduleStatus.REQUESTED_BY_WORKER) }
-        )).thenReturn(emptyList())
-        
-        // 2. Today's confirmed schedule (for Late check)
-        whenever(scheduleRepository.findByOwnerAndStatusIn(
-            eq(ownerId), 
-            argThat { list -> list != null && list.contains(ScheduleStatus.CONFIRMED) }
-        )).thenReturn(listOf(todaySchedule))
-        
-        whenever(workLogRepository.findOngoingWorkLogsOlderThan(any(), any())).thenReturn(emptyList())
-        // 오늘 워크로그 없음
-        whenever(workLogRepository.findByOwnerAndTimeRange(any(), any(), any())).thenReturn(emptyList())
+
+        whenever(scheduleRepository.findByOwnerAndStatusIn(eq(ownerId), any())).thenReturn(emptyList())
+        whenever(workLogRepository.findOngoingWorkLogsByOwner(ownerId)).thenReturn(listOf(workLog))
+        whenever(scheduleRepository.findByOwnerAndTimeRange(eq(ownerId), any(), any())).thenReturn(emptyList())
 
         // When
-        val result = dashboardReadService.getDashboardActions(ownerId)
+        val result = dashboardReadService.getDashboardActions(ownerId, null, 20, null)
 
         // Then
-        assertEquals(1, result.size)
-        assertEquals(DashboardActionType.LATE_ARRIVAL, result[0].type)
-        assertEquals(ActionSeverity.MEDIUM, result[0].severity)
-        }
+        assertEquals(1, result.items.size)
+        val item = result.items[0]
+        assertEquals(DashboardActionType.MISSING_CHECKOUT, item.type)
+        assertEquals(30, item.priority) // Urgent
+        assertEquals("퇴근 미체크", item.title)
+    }
+
+    @Test
+    @DisplayName("Action Center: 우선순위 정렬 확인")
+    fun actions_shouldSortByPriority() {
+        // Given: 1 pending approval (10), 1 missing checkout (30)
+        
+        // 1. Pending
+        val pendingSchedule = Schedule(
+            id = UUID.randomUUID(),
+            worker = worker,
+            startAtUtc = OffsetDateTime.now().plusDays(1),
+            endAtUtc = OffsetDateTime.now().plusDays(1).plusHours(4),
+            timezone = "Asia/Seoul",
+            status = ScheduleStatus.REQUESTED_BY_WORKER
+        )
+        whenever(scheduleRepository.findByOwnerAndStatusIn(eq(ownerId), any()))
+            .thenReturn(listOf(pendingSchedule))
+            
+        // 2. Missing Checkout
+        val past = OffsetDateTime.now().minusHours(5)
+        val pastSchedule = Schedule(
+            worker = worker,
+            startAtUtc = past,
+            endAtUtc = past.plusHours(4),
+            timezone = "Asia/Seoul"
+        )
+        val ongoingLog = WorkLog(
+            worker = worker,
+            schedule = pastSchedule,
+            clockInAt = past,
+            status = WorkLogStatus.ONGOING
+        )
+        whenever(workLogRepository.findOngoingWorkLogsByOwner(ownerId)).thenReturn(listOf(ongoingLog))
+        
+        // No missing checkins
+        whenever(scheduleRepository.findByOwnerAndTimeRange(eq(ownerId), any(), any())).thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getDashboardActions(ownerId, null, 20, null)
+
+        // Then
+        assertEquals(2, result.items.size)
+        // Expected: Missing Checkout (30) -> Pending Approval (10)
+        assertEquals(DashboardActionType.MISSING_CHECKOUT, result.items[0].type)
+        assertEquals(30, result.items[0].priority)
+        
+        assertEquals(DashboardActionType.PENDING_SCHEDULE_APPROVAL, result.items[1].type)
+        assertEquals(10, result.items[1].priority)
+    }
 
     // --- Attendance API Tests ---
 

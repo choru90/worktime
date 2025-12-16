@@ -46,11 +46,29 @@ class DashboardController(
 
     @GetMapping("/actions")
     @PreAuthorize("hasRole('OWNER')")
-    @Operation(summary = "대시보드 조치 필요 사항 조회", description = "승인 대기 스케줄, 퇴근 미체크, 지각 등 조치가 필요한 항목을 조회합니다.")
-    fun getActions(): ResponseEntity<List<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse>> {
+    @Operation(summary = "Action Center (할 일 목록) 조회", description = "운영자가 처리해야 할 항목을 우선순위 순으로 조회합니다.")
+    fun getActionCenter(
+        @Parameter(description = "기준 날짜 (YYYY-MM-DD, Default: 오늘)")
+        @RequestParam(required = false) 
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        date: LocalDate?,
+        
+        @Parameter(description = "최대 조회 개수 (Default: 20)")
+        @RequestParam(required = false, defaultValue = "20") 
+        limit: Int,
+        
+        @Parameter(description = "필터링할 액션 타입 목록 (Comma separated)")
+        @RequestParam(required = false) 
+        types: List<com.worktime.domain.model.DashboardActionType>?
+    ): ResponseEntity<com.worktime.application.port.input.dto.DashboardActionListResponse> {
         val ownerId = getCurrentOwnerId()
-        val actions = dashboardReadUseCase.getDashboardActions(ownerId)
-        return ResponseEntity.ok(actions)
+        val response = dashboardReadUseCase.getDashboardActions(
+            ownerId = ownerId,
+            date = date,
+            limit = limit,
+            types = types
+        )
+        return ResponseEntity.ok(response)
     }
 
     @GetMapping("/attendance")

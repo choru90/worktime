@@ -119,4 +119,39 @@ interface ScheduleJpaRepository : JpaRepository<Schedule, UUID> {
         @Param("ownerId") ownerId: UUID,
         @Param("statuses") statuses: List<ScheduleStatus>
     ): List<Schedule>
+    /**
+     * Find pending schedules (requested by worker) for a specific owner
+     * Used for PENDING_SCHEDULE_APPROVAL action
+     */
+    @Query("""
+        SELECT s FROM Schedule s 
+        WHERE s.worker.owner.id = :ownerId 
+        AND s.status = 'REQUESTED_BY_WORKER'
+        ORDER BY s.startAtUtc ASC
+    """)
+    fun findPendingSchedulesByOwner(@Param("ownerId") ownerId: UUID): List<Schedule>
+
+    /**
+     * Find schedules for a specific owner within a time range
+     * Used for MISSING_CHECKIN detection (checking today's schedules)
+     */
+    @Query("""
+        SELECT s FROM Schedule s 
+        WHERE s.worker.owner.id = :ownerId 
+        AND s.startAtUtc >= :startTime 
+        AND s.endAtUtc <= :endTime
+        AND s.status NOT IN ('CANCELED', 'REJECTED')
+        ORDER BY s.startAtUtc ASC
+    """)
+    fun findByOwnerAndTimeRange(
+        @Param("ownerId") ownerId: UUID,
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime
+    ): List<Schedule>
+
+    /**
+     * Find schedules by ID list
+     */
+    @Query("SELECT s FROM Schedule s WHERE s.id IN :ids")
+    fun findAllByIds(@Param("ids") ids: List<UUID>): List<Schedule>
 }

@@ -21,11 +21,19 @@ interface DashboardReadUseCase {
      */
     /**
      * 대시보드 조치 필요 사항 조회 (Action Center)
-     * 
+     *
      * @param ownerId 고용주 ID
-     * @return 조치 필요 사항 목록 (중요도, 시간순 정렬)
+     * @param date 기준 날짜 (KST) - 없으면 오늘
+     * @param limit 최대 개수
+     * @param types 필터링할 타입 목록 (없으면 전체)
+     * @return 조치 필요 사항 목록
      */
-    fun getDashboardActions(ownerId: UUID): List<com.worktime.adapter.input.web.dto.dashboard.DashboardActionResponse>
+    fun getDashboardActions(
+        ownerId: UUID,
+        date: LocalDate? = null,
+        limit: Int = 20,
+        types: List<com.worktime.domain.model.DashboardActionType>? = null
+    ): com.worktime.application.port.input.dto.DashboardActionListResponse
 
     /**
      * 대시보드 KPI 요약 조회

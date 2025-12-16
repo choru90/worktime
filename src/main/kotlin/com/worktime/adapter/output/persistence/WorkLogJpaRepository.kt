@@ -144,4 +144,16 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
      * Find by schedule IDs
      */
     fun findByScheduleIdIn(scheduleIds: List<UUID>): List<WorkLog>
+    /**
+     * Find ongoing work logs for a specific owner
+     * Used for MISSING_CHECKOUT detection
+     */
+    @Query("""
+        SELECT wl FROM WorkLog wl 
+        WHERE wl.worker.owner.id = :ownerId 
+        AND wl.status = 'ONGOING'
+        AND wl.clockOutAt IS NULL
+        ORDER BY wl.clockInAt ASC
+    """)
+    fun findOngoingWorkLogsByOwner(@Param("ownerId") ownerId: UUID): List<WorkLog>
 }

@@ -67,4 +67,18 @@ interface ScheduleRepository {
         ownerId: UUID,
         statuses: List<ScheduleStatus>
     ): List<Schedule>
+
+    /**
+     * Find schedules for a specific owner within a time range
+     * 
+     * @param ownerId 고용주 ID
+     * @param startTime 시작 시간
+     * @param endTime 종료 시간
+     * @return 스케줄 목록
+     */
+    fun findByOwnerAndTimeRange(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<Schedule>
 }

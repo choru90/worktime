@@ -73,4 +73,8 @@ class WorkLogRepositoryAdapter(
         if (scheduleIds.isEmpty()) return emptyList()
         return workLogJpaRepository.findByScheduleIdIn(scheduleIds)
     }
+
+    override fun findOngoingWorkLogsByOwner(ownerId: UUID): List<WorkLog> {
+        return workLogJpaRepository.findOngoingWorkLogsByOwner(ownerId)
+    }
 }

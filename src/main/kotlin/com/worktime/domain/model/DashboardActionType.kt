@@ -8,13 +8,19 @@ package com.worktime.domain.model
  */
 enum class DashboardActionType(val description: String) {
     
-    // ========== WorkLog 관련 ==========
+    // ========== WorkLog / Attendance 관련 ==========
     
     /**
      * 퇴근 미체크
      * 근로자가 출근은 했으나 퇴근 체크를 하지 않은 경우
      */
     MISSING_CHECKOUT("퇴근 미체크"),
+
+    /**
+     * 출근 미체크
+     * 오늘 스케줄이 있는데 출근 체크인이 없음
+     */
+    MISSING_CHECKIN("출근 미체크"),
     
     /**
      * 지각
@@ -29,22 +35,28 @@ enum class DashboardActionType(val description: String) {
     EARLY_DEPARTURE("조퇴"),
     
     // ========== Schedule 관련 ==========
-    
+
     /**
-     * 승인 대기중
-     * 근로자 또는 고용주가 제안한 스케줄이 상대방의 승인을 기다리는 상태
+     * 승인 대기중 (Deprecated or Alias for PENDING_SCHEDULE_APPROVAL)
      */
     PENDING_APPROVAL("승인 대기중"),
-    
+
+    /**
+     * 스케줄 승인 대기
+     * 사장이 승인/거절해야 하는 스케줄
+     */
+    PENDING_SCHEDULE_APPROVAL("스케줄 승인 대기"),
+
     /**
      * 근무 임박
-     * 예정된 근무 시작 시간이 임박한 경우 (예: 1시간 전)
      */
-    APPROACHING_SHIFT("근무 임박");
-    
-    // TODO: Sprint 1 이후 추가 예정
-    // - OVERTIME: 초과 근무
-    // - MISSING_CHECKIN: 출근 미체크
-    // - SCHEDULE_CONFLICT: 스케줄 충돌
-    // - WAGE_DISPUTE: 급여 분쟁
+    APPROACHING_SHIFT("근무 임박"),
+
+    // ========== WageContract 관련 ==========
+
+    /**
+     * 근로 계약 만료 임박
+     * 시급 계약이 N일 이내 만료 예정
+     */
+    WAGE_CONTRACT_EXPIRING_SOON("근로 계약 만료 임박");
 }
