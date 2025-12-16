@@ -57,4 +57,15 @@ interface DashboardReadUseCase {
         date: LocalDate, 
         includeLogWithoutSchedule: Boolean = false
     ): com.worktime.adapter.input.web.dto.dashboard.AttendanceSummaryResponse
+
+    /**
+     * Top Workers 조회
+     */
+    fun getTopWorkers(
+        ownerId: UUID,
+        from: LocalDate?,
+        to: LocalDate?,
+        limit: Int = 5,
+        sort: com.worktime.application.port.input.dto.TopWorkerSort = com.worktime.application.port.input.dto.TopWorkerSort.WAGE_DESC
+    ): com.worktime.application.port.input.dto.TopWorkersResponse
 }

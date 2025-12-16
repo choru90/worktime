@@ -406,4 +406,135 @@ class DashboardReadService(
         val zdt = odt.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"))
         return "${zdt.hour.toString().padStart(2, '0')}:${zdt.minute.toString().padStart(2, '0')}"
     }
+
+    override fun getTopWorkers(
+        ownerId: UUID,
+        from: LocalDate?,
+        to: LocalDate?,
+        limit: Int,
+        sort: TopWorkerSort
+    ): TopWorkersResponse {
+        val zoneId = java.time.ZoneId.of("Asia/Seoul")
+        val targetTo = to ?: LocalDate.now(zoneId)
+        // Default to last 7 days (including today if to is today)
+        // Rule: from (inclusive) ~ to (exclusive for OffsetDateTime conversion usually, but API param says inclusive date)
+        // user requirement: 12/09 ~ 12/15 -> inclusive.
+        // So conversion to OffsetDateTime: 12/09 00:00 <= t < 12/16 00:00
+        val targetFrom = from ?: targetTo.minusDays(6)
+        
+        val startDateTime = targetFrom.atStartOfDay(zoneId).toOffsetDateTime()
+        val endDateTime = targetTo.plusDays(1).atStartOfDay(zoneId).toOffsetDateTime()
+
+        // 1. Fetch Completed worklogs
+        val workLogs = workLogRepository.findCompletedWorkLogsByOwnerAndTimeRange(
+            ownerId, startDateTime, endDateTime
+        )
+        
+        if (workLogs.isEmpty()) {
+            return TopWorkersResponse(
+                timezone = zoneId.id,
+                range = DateRangeDto(
+                    from = targetFrom,
+                    to = targetTo,
+                    days = java.time.temporal.ChronoUnit.DAYS.between(targetFrom, targetTo) + 1
+                ),
+                items = emptyList()
+            )
+        }
+        
+        // 2. Fetch Contracts (Batch)
+        val distinctWorkers = workLogs.map { it.worker }.distinctBy { it.id }
+        val contracts = wageContractRepository.findByWorkerIn(distinctWorkers)
+        val contractsMap = contracts.groupBy { it.worker.id }
+        
+        // 3. Group and Calculate Stats
+        val groupedLogs = workLogs.groupBy { it.worker.id }
+        
+        val items = groupedLogs.mapNotNull { (workerId, logs) ->
+            if (logs.isEmpty()) return@mapNotNull null
+            
+            val worker = logs.first().worker
+            
+            var totalMinutes = 0L
+            var totalWage = java.math.BigDecimal.ZERO
+            val shifts = logs.size
+            
+            logs.forEach { log ->
+                 val duration = log.calculateDuration()?.toMinutes() ?: 0L
+                 totalMinutes += duration
+                 
+                 // Wage Calc
+                 val workDate = log.clockInAt.atZoneSameInstant(zoneId).toLocalDate()
+                 val validContract = contractsMap[workerId]?.find { it.isActiveOn(workDate) }
+                 
+                 if (validContract != null) {
+                     // MVP Policy: floor(minutes / 60 * wage) -> Not accurate double math.
+                     // Suggestion: minutes * hourly / 60 to preserve precision then floor.
+                     // user prompt: "sum( floor(totalWorkMinutes / 60 * hourlyWage) )" -> Check interpretation.
+                     // Usually it implies: for each shift, calculate wage.
+                     // Formula: (minutes * wage) / 60. floor result.
+                     val wageForShift = java.math.BigDecimal.valueOf(duration)
+                         .multiply(validContract.hourlyWage)
+                         .divide(java.math.BigDecimal.valueOf(60), 0, java.math.RoundingMode.FLOOR)
+                     totalWage = totalWage.add(wageForShift)
+                 }
+            }
+            
+            TopWorkerItem(
+                rank = 0, // Fill later
+                worker = WorkerInfo(
+                    workerId = worker.id.toString(),
+                    name = worker.name,
+                    pictureUrl = null // TODO
+                ),
+                stats = WorkerStats(
+                    completedShifts = shifts,
+                    totalWorkMinutes = totalMinutes,
+                    accruedWage = totalWage
+                )
+            )
+        }
+        
+        // 4. Sort and Rank
+        val sortedItems = when (sort) {
+            TopWorkerSort.WAGE_DESC -> items.sortedWith(
+                compareByDescending<TopWorkerItem> { it.stats.accruedWage }
+                    .thenBy { it.worker.name }
+            )
+            TopWorkerSort.MINUTES_DESC -> items.sortedWith(
+                compareByDescending<TopWorkerItem> { it.stats.totalWorkMinutes }
+                    .thenBy { it.worker.name }
+            )
+            TopWorkerSort.SHIFTS_DESC -> items.sortedWith(
+                compareByDescending<TopWorkerItem> { it.stats.completedShifts }
+                    .thenBy { it.worker.name }
+            )
+        }
+        
+        // 5. Limit and Badge
+        val limitedItems = sortedItems.take(limit)
+        
+        val rankedItems = limitedItems.mapIndexed { index, item ->
+            val badges = mutableListOf<WorkerBadge>()
+            if (index == 0 && sortedItems.isNotEmpty()) {
+                if (sort == TopWorkerSort.WAGE_DESC) badges.add(WorkerBadge.TOP_WAGE)
+                if (sort == TopWorkerSort.MINUTES_DESC) badges.add(WorkerBadge.TOP_MINUTES)
+            }
+            
+            item.copy(
+                rank = index + 1,
+                badges = badges
+            )
+        }
+
+        return TopWorkersResponse(
+            timezone = zoneId.id,
+            range = DateRangeDto(
+                from = targetFrom,
+                to = targetTo,
+                days = java.time.temporal.ChronoUnit.DAYS.between(targetFrom, targetTo) + 1
+            ),
+            items = rankedItems
+        )
+    }
 }

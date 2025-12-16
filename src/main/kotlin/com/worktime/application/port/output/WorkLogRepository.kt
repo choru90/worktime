@@ -73,4 +73,13 @@ interface WorkLogRepository {
      * @return 진행 중인 워크로그 목록
      */
     fun findOngoingWorkLogsByOwner(ownerId: UUID): List<WorkLog>
+
+    /**
+     * Find completed work logs for a specific owner within a time range
+     */
+    fun findCompletedWorkLogsByOwnerAndTimeRange(
+        ownerId: UUID,
+        startTime: OffsetDateTime,
+        endTime: OffsetDateTime
+    ): List<WorkLog>
 }

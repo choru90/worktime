@@ -453,6 +453,110 @@ class DashboardReadServiceTest {
             status = ScheduleStatus.CONFIRMED
         )
     }
+
+    // --- Top Workers API Tests ---
+
+    @Test
+    @DisplayName("Top Workers: 워크로그 없음 -> 빈 리스트 반환")
+    fun topWorkers_noLogs_shouldReturnEmpty() {
+        // Given
+        whenever(workLogRepository.findCompletedWorkLogsByOwnerAndTimeRange(any(), any(), any()))
+            .thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getTopWorkers(ownerId, null, null, 5, com.worktime.application.port.input.dto.TopWorkerSort.WAGE_DESC)
+
+        // Then
+        assertEquals(0, result.items.size)
+    }
+
+    @Test
+    @DisplayName("Top Workers: 급여순 정렬 및 시급 계산 확인")
+    fun topWorkers_sortByWage_shouldCalculateAndSortCorrectly() {
+        // Given
+        // Worker 1: 5 hours * 10,000 = 50,000
+        val w1 = Worker(id = UUID.randomUUID(), name = "Worker1", phoneNumber = "010-1111-1111", owner = worker.owner)
+        val log1 = WorkLog(worker = w1, clockInAt = OffsetDateTime.now().minusHours(5), clockOutAt = OffsetDateTime.now(), status = WorkLogStatus.COMPLETED)
+        
+        // Worker 2: 2 hours * 20,000 = 40,000
+        val w2 = Worker(id = UUID.randomUUID(), name = "Worker2", phoneNumber = "010-2222-2222", owner = worker.owner)
+        val log2 = WorkLog(worker = w2, clockInAt = OffsetDateTime.now().minusHours(2), clockOutAt = OffsetDateTime.now(), status = WorkLogStatus.COMPLETED)
+
+        whenever(workLogRepository.findCompletedWorkLogsByOwnerAndTimeRange(any(), any(), any()))
+            .thenReturn(listOf(log1, log2))
+
+        val contract1 = WageContract(worker = w1, hourlyWage = BigDecimal("10000"), startDate = LocalDate.of(2020, 1, 1), endDate = null)
+        val contract2 = WageContract(worker = w2, hourlyWage = BigDecimal("20000"), startDate = LocalDate.of(2020, 1, 1), endDate = null)
+        
+        whenever(wageContractRepository.findByWorkerIn(any())).thenReturn(listOf(contract1, contract2))
+
+        // When
+        val result = dashboardReadService.getTopWorkers(ownerId, null, null, 5, com.worktime.application.port.input.dto.TopWorkerSort.WAGE_DESC)
+
+        // Then
+        assertEquals(2, result.items.size)
+        // Rank 1: Worker 1 (50,000)
+        assertEquals("Worker1", result.items[0].worker.name)
+        assertEquals(BigDecimal("50000"), result.items[0].stats.accruedWage)
+        assertEquals(1, result.items[0].rank)
+        
+        // Rank 2: Worker 2 (40,000)
+        assertEquals("Worker2", result.items[1].worker.name)
+        assertEquals(BigDecimal("40000"), result.items[1].stats.accruedWage)
+        assertEquals(2, result.items[1].rank)
+    }
+
+    @Test
+    @DisplayName("Top Workers: 근무 시간순 정렬 확인")
+    fun topWorkers_sortByMinutes_shouldSortCorrectly() {
+        // Given
+        // Worker 1: 5 hours = 300 mins
+        val w1 = Worker(id = UUID.randomUUID(), name = "Worker1", phoneNumber = "p1", owner = worker.owner)
+        val log1 = WorkLog(worker = w1, clockInAt = OffsetDateTime.now().minusHours(5), clockOutAt = OffsetDateTime.now(), status = WorkLogStatus.COMPLETED)
+        
+        // Worker 2: 10 hours = 600 mins
+        val w2 = Worker(id = UUID.randomUUID(), name = "Worker2", phoneNumber = "p2", owner = worker.owner)
+        val log2 = WorkLog(worker = w2, clockInAt = OffsetDateTime.now().minusHours(10), clockOutAt = OffsetDateTime.now(), status = WorkLogStatus.COMPLETED)
+
+        whenever(workLogRepository.findCompletedWorkLogsByOwnerAndTimeRange(any(), any(), any()))
+            .thenReturn(listOf(log1, log2))
+        
+        whenever(wageContractRepository.findByWorkerIn(any())).thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getTopWorkers(ownerId, null, null, 5, com.worktime.application.port.input.dto.TopWorkerSort.MINUTES_DESC)
+
+        // Then
+        assertEquals(2, result.items.size)
+        // Rank 1: Worker 2 (600 mins)
+        assertEquals("Worker2", result.items[0].worker.name)
+        assertEquals(600L, result.items[0].stats.totalWorkMinutes)
+        
+        // Rank 2: Worker 1 (300 mins)
+        assertEquals("Worker1", result.items[1].worker.name)
+        assertEquals(300L, result.items[1].stats.totalWorkMinutes)
+    }
+
+    @Test
+    @DisplayName("Top Workers: Limit 적용 확인")
+    fun topWorkers_limit_shouldRequireLimit() {
+        // Given
+        val logs = (1..10).map { 
+            val w = Worker(id = UUID.randomUUID(), name = "W$it", phoneNumber = "p", owner = worker.owner)
+            WorkLog(worker = w, clockInAt = OffsetDateTime.now().minusHours(1), clockOutAt = OffsetDateTime.now(), status = WorkLogStatus.COMPLETED)
+        }
+        whenever(workLogRepository.findCompletedWorkLogsByOwnerAndTimeRange(any(), any(), any())).thenReturn(logs)
+        whenever(wageContractRepository.findByWorkerIn(any())).thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getTopWorkers(ownerId, null, null, 3, com.worktime.application.port.input.dto.TopWorkerSort.SHIFTS_DESC)
+
+        // Then
+        assertEquals(3, result.items.size)
+        assertEquals(1, result.items[0].rank)
+        assertEquals(2, result.items[1].rank)
+        assertEquals(3, result.items[2].rank)
+    }
 }
 
 

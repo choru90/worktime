@@ -16,4 +16,9 @@ interface WageContractRepository {
     fun findCurrentActiveContract(worker: Worker): WageContract?
     fun findActiveContractOnDate(worker: Worker, date: LocalDate): WageContract?
     fun findContractsOverlappingPeriod(worker: Worker, startDate: LocalDate, endDate: LocalDate): List<WageContract>
+    
+    /**
+     * Find contracts for a list of workers (Batch fetch)
+     */
+    fun findByWorkerIn(workers: List<Worker>): List<WageContract>
 }

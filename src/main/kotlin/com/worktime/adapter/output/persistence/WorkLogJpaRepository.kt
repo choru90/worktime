@@ -156,4 +156,18 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         ORDER BY wl.clockInAt ASC
     """)
     fun findOngoingWorkLogsByOwner(@Param("ownerId") ownerId: UUID): List<WorkLog>
+
+    @Query("""
+        SELECT wl FROM WorkLog wl 
+        WHERE wl.worker.owner.id = :ownerId 
+        AND wl.status = 'COMPLETED'
+        AND wl.clockOutAt IS NOT NULL
+        AND wl.clockInAt >= :startTime 
+        AND wl.clockOutAt <= :endTime
+    """)
+    fun findCompletedByOwnerAndRange(
+        @Param("ownerId") ownerId: UUID, 
+        @Param("startTime") startTime: OffsetDateTime, 
+        @Param("endTime") endTime: OffsetDateTime
+    ): List<WorkLog>
 }

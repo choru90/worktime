@@ -90,6 +90,32 @@ class DashboardController(
         return ResponseEntity.ok(summary)
     }
 
+    @GetMapping("/top-workers")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "우수 근무자(Top Workers) 조회", description = "기간 내 급여/근무시간 상위 근무자를 조회합니다.")
+    fun getTopWorkers(
+        @Parameter(description = "시작 날짜 (YYYY-MM-DD)") 
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate?,
+        
+        @Parameter(description = "종료 날짜 (YYYY-MM-DD)") 
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate?,
+        
+        @Parameter(description = "최대 조회 개수 (Default: 5)") 
+        @RequestParam(required = false, defaultValue = "5") limit: Int,
+        
+        @Parameter(description = "정렬 기준 (WAGE_DESC, MINUTES_DESC, SHIFTS_DESC)") 
+        @RequestParam(required = false, defaultValue = "WAGE_DESC") sort: com.worktime.application.port.input.dto.TopWorkerSort
+    ): ResponseEntity<com.worktime.application.port.input.dto.TopWorkersResponse> {
+        val response = dashboardReadUseCase.getTopWorkers(
+            ownerId = getCurrentOwnerId(),
+            from = from,
+            to = to,
+            limit = limit,
+            sort = sort
+        )
+        return ResponseEntity.ok(response)
+    }
+
     private fun getCurrentOwnerId(): UUID {
         val authentication = SecurityContextHolder.getContext().authentication
         // name이 ID(UUID)라고 가정하는 컨벤션 따름

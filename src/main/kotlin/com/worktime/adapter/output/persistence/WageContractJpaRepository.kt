@@ -59,4 +59,6 @@ interface WageContractJpaRepository : JpaRepository<WageContract, UUID> {
         @Param("startDate") startDate: LocalDate,
         @Param("endDate") endDate: LocalDate
     ): List<WageContract>
+    
+    fun findByWorkerIn(workers: List<Worker>): List<WageContract>
 }

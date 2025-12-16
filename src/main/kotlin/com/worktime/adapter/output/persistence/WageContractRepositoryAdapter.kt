@@ -46,4 +46,9 @@ class WageContractRepositoryAdapter(
     ): List<WageContract> {
         return jpaRepository.findContractsOverlappingPeriod(worker, startDate, endDate)
     }
+
+    override fun findByWorkerIn(workers: List<Worker>): List<WageContract> {
+        if (workers.isEmpty()) return emptyList()
+        return jpaRepository.findByWorkerIn(workers)
+    }
 }
