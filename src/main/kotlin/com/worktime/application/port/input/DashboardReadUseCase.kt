@@ -35,4 +35,18 @@ interface DashboardReadUseCase {
      * @return 대시보드 요약 응답 (KPI 데이터)
      */
     fun getDashboardSummary(ownerId: UUID, date: LocalDate): com.worktime.adapter.input.web.dto.dashboard.DashboardSummaryResponse
+
+    /**
+     * 출퇴근 현황 및 예외 조회 (Attendance API)
+     * 
+     * @param ownerId 고용주 ID
+     * @param date 기준 날짜 (KST)
+     * @param includeLogWithoutSchedule 스케줄 없는 로그 포함 여부 (Default: false)
+     * @return 출퇴근 요약 및 예외 목룍
+     */
+    fun getAttendanceSummary(
+        ownerId: UUID, 
+        date: LocalDate, 
+        includeLogWithoutSchedule: Boolean = false
+    ): com.worktime.adapter.input.web.dto.dashboard.AttendanceSummaryResponse
 }

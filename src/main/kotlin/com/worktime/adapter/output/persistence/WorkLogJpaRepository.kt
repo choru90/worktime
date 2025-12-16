@@ -139,4 +139,9 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         @Param("ownerId") ownerId: UUID,
         @Param("thresholdTime") thresholdTime: OffsetDateTime
     ): List<WorkLog>
+
+    /**
+     * Find by schedule IDs
+     */
+    fun findByScheduleIdIn(scheduleIds: List<UUID>): List<WorkLog>
 }

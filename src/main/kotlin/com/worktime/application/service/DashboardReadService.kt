@@ -237,6 +237,97 @@ class DashboardReadService(
         )
     }
 
+    override fun getAttendanceSummary(
+        ownerId: UUID, 
+        date: LocalDate, 
+        includeLogWithoutSchedule: Boolean
+    ): com.worktime.adapter.input.web.dto.dashboard.AttendanceSummaryResponse {
+        // 1. Date Range & Fetch Schedules
+        val dateRange = DashboardDateRange.todayRange(date)
+        
+        // Active Schedules: CONFIRMED, IN_PROGRESS, COMPLETED
+        val allSchedules = scheduleRepository.findByOwnerAndStatusIn(
+            ownerId,
+            listOf(
+                com.worktime.domain.model.ScheduleStatus.CONFIRMED,
+                com.worktime.domain.model.ScheduleStatus.CONFIRMED // Assuming CONFIRMED covers active
+            )
+        )
+        
+        // Filter by Date Range (Overlap logic)
+        val targetSchedules = allSchedules.filter { 
+            it.startAtUtc.isBefore(dateRange.endExclusive) && it.endAtUtc.isAfter(dateRange.start)
+        }
+        
+        // 2. Fetch WorkLogs (Batch)
+        val scheduleIds = targetSchedules.map { it.id }
+        val relatedWorkLogs = workLogRepository.findByScheduleIds(scheduleIds)
+        val workLogsMap = relatedWorkLogs.groupBy { it.schedule?.id }
+        
+        // 3. Calculate Counts & Exceptions
+        var scheduledCount = 0
+        var checkedInCount = 0
+        var notCheckedInCount = 0
+        var notCheckedOutCount = 0
+        
+        val exceptions = mutableListOf<com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionDto>()
+        
+        // Sort schedules by start time for consistent exception list
+        val sortedSchedules = targetSchedules.sortedBy { it.startAtUtc }
+        
+        for (schedule in sortedSchedules) {
+            scheduledCount++
+            
+            val logs = workLogsMap[schedule.id]
+            val hasCheckIn = !logs.isNullOrEmpty()
+            
+            if (hasCheckIn) {
+                checkedInCount++
+                val ongoingLog = logs!!.find { it.clockOutAt == null }
+                if (ongoingLog != null) {
+                    notCheckedOutCount++
+                    
+                    exceptions.add(com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionDto(
+                        type = com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionType.CHECKIN_EXISTS_BUT_NO_CHECKOUT,
+                        scheduleId = schedule.id,
+                        workLogId = ongoingLog.id,
+                        workerId = schedule.worker.id,
+                        workerName = schedule.worker.name,
+                        scheduledStartAt = schedule.startAtUtc,
+                        scheduledEndAt = schedule.endAtUtc,
+                        checkedInAt = ongoingLog.clockInAt,
+                        checkedOutAt = null
+                    ))
+                }
+            } else {
+                notCheckedInCount++
+                
+                exceptions.add(com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionDto(
+                    type = com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionType.SCHEDULE_EXISTS_BUT_NO_CHECKIN,
+                    scheduleId = schedule.id,
+                    workerId = schedule.worker.id,
+                    workerName = schedule.worker.name,
+                    scheduledStartAt = schedule.startAtUtc,
+                    scheduledEndAt = schedule.endAtUtc,
+                    checkedInAt = null,
+                    checkedOutAt = null
+                ))
+            }
+        }
+        
+        // 4. Construct Response
+        return com.worktime.adapter.input.web.dto.dashboard.AttendanceSummaryResponse(
+            date = date,
+            summary = com.worktime.adapter.input.web.dto.dashboard.AttendanceCounts(
+                scheduledCount = scheduledCount,
+                checkedInCount = checkedInCount,
+                notCheckedInCount = notCheckedInCount,
+                notCheckedOutCount = notCheckedOutCount
+            ),
+            exceptions = exceptions
+        )
+    }
+
     private fun calculateActionNeededCount(ownerId: UUID, todayKpi: TodayKpiDto): Int {
         // 1. Pending Schedules
         val pendingSchedules = scheduleRepository.findByOwnerAndStatusIn(

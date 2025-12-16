@@ -53,6 +53,25 @@ class DashboardController(
         return ResponseEntity.ok(actions)
     }
 
+    @GetMapping("/attendance")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "출퇴근 현황 및 예외 조회", description = "오늘의 출퇴근 요약(정상/미출근/미퇴근)과 예외 리스트를 조회합니다.")
+    fun getAttendance(
+        @Parameter(description = "기준 날짜 (YYYY-MM-DD). 미제공 시 오늘(KST) 기준")
+        @RequestParam(required = false) 
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+        date: LocalDate?,
+        @Parameter(description = "스케줄 없는 로그 포함 여부 (Default: false)")
+        @RequestParam(required = false, defaultValue = "false")
+        includeLogWithoutSchedule: Boolean
+    ): ResponseEntity<com.worktime.adapter.input.web.dto.dashboard.AttendanceSummaryResponse> {
+        val ownerId = getCurrentOwnerId()
+        val targetDate = date ?: LocalDate.now(ZoneId.of("Asia/Seoul"))
+        
+        val summary = dashboardReadUseCase.getAttendanceSummary(ownerId, targetDate, includeLogWithoutSchedule)
+        return ResponseEntity.ok(summary)
+    }
+
     private fun getCurrentOwnerId(): UUID {
         val authentication = SecurityContextHolder.getContext().authentication
         // name이 ID(UUID)라고 가정하는 컨벤션 따름

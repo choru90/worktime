@@ -272,6 +272,162 @@ class DashboardReadServiceTest {
         assertEquals(1, result.size)
         assertEquals(DashboardActionType.LATE_ARRIVAL, result[0].type)
         assertEquals(ActionSeverity.MEDIUM, result[0].severity)
+        }
+
+    // --- Attendance API Tests ---
+
+    @Test
+    @DisplayName("Attendance: 스케줄 0개 -> 모두 0, 예외 없음")
+    fun attendance_zeroState_shouldReturnZeros() {
+        // Given
+        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getAttendanceSummary(ownerId, targetDate, false)
+
+        // Then
+        assertEquals(0, result.summary.scheduledCount)
+        assertEquals(0, result.summary.checkedInCount)
+        assertEquals(0, result.summary.notCheckedInCount)
+        assertEquals(0, result.summary.notCheckedOutCount)
+        assertEquals(0, result.exceptions.size)
+    }
+
+    @Test
+    @DisplayName("Attendance: 스케줄 2개, 워크로그 0개 -> 미출근 2, 예외 2개")
+    fun attendance_missingCheckin_shouldReturnExceptions() {
+        // Given
+        val s1 = createSchedule(9, 18)
+        val s2 = createSchedule(10, 19)
+        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(listOf(s1, s2))
+        whenever(workLogRepository.findByScheduleIds(any())).thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getAttendanceSummary(ownerId, targetDate, false)
+
+        // Then
+        assertEquals(2, result.summary.scheduledCount)
+        assertEquals(0, result.summary.checkedInCount)
+        assertEquals(2, result.summary.notCheckedInCount)
+        assertEquals(2, result.exceptions.size)
+        assertEquals(com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionType.SCHEDULE_EXISTS_BUT_NO_CHECKIN, result.exceptions[0].type)
+    }
+
+    @Test
+    @DisplayName("Attendance: 스케줄 1개, 출근만 함 -> 미퇴근 1, 예외 1개")
+    fun attendance_missingCheckout_shouldReturnException() {
+        // Given
+        val s1 = createSchedule(9, 18)
+        val ongoingLog = WorkLog(worker = worker, schedule = s1, clockInAt = s1.startAtUtc, status = WorkLogStatus.ONGOING)
+        
+        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(listOf(s1))
+        whenever(workLogRepository.findByScheduleIds(any())).thenReturn(listOf(ongoingLog))
+
+        // When
+        val result = dashboardReadService.getAttendanceSummary(ownerId, targetDate, false)
+
+        // Then
+        assertEquals(1, result.summary.scheduledCount)
+        assertEquals(1, result.summary.checkedInCount) // 출근은 했으므로
+        assertEquals(0, result.summary.notCheckedInCount)
+        assertEquals(1, result.summary.notCheckedOutCount)
+        assertEquals(1, result.exceptions.size)
+        assertEquals(com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionType.CHECKIN_EXISTS_BUT_NO_CHECKOUT, result.exceptions[0].type)
+    }
+
+    @Test
+    @DisplayName("Attendance: 스케줄 1개, 정상 종료 -> 예외 없음")
+    fun attendance_completed_shouldReturnNoException() {
+        // Given
+        val s1 = createSchedule(9, 18)
+        val completedLog = WorkLog(worker = worker, schedule = s1, clockInAt = s1.startAtUtc, clockOutAt = s1.endAtUtc, status = WorkLogStatus.COMPLETED)
+        
+        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(listOf(s1))
+        whenever(workLogRepository.findByScheduleIds(any())).thenReturn(listOf(completedLog))
+
+        // When
+        val result = dashboardReadService.getAttendanceSummary(ownerId, targetDate, false)
+
+        // Then
+        assertEquals(1, result.summary.scheduledCount)
+        assertEquals(1, result.summary.checkedInCount)
+        assertEquals(0, result.summary.notCheckedInCount)
+        assertEquals(0, result.summary.notCheckedOutCount)
+        assertEquals(0, result.exceptions.size)
+    }
+
+    @Test
+    @DisplayName("Attendance: 혼합 (정상 + 미출근 + 미퇴근) -> 정확히 분리")
+    fun attendance_mixed_shouldCalculateCorrectly() {
+        // Given
+        val s1 = createSchedule(9, 18)  // Normal
+        val s2 = createSchedule(10, 19) // No Checkin
+        val s3 = createSchedule(11, 20) // No Checkout
+        
+        val log1 = WorkLog(worker = worker, schedule = s1, clockInAt = s1.startAtUtc, clockOutAt = s1.endAtUtc, status = WorkLogStatus.COMPLETED)
+        val log3 = WorkLog(worker = worker, schedule = s3, clockInAt = s3.startAtUtc, status = WorkLogStatus.ONGOING)
+
+        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(listOf(s1, s2, s3))
+        whenever(workLogRepository.findByScheduleIds(any())).thenReturn(listOf(log1, log3))
+
+        // When
+        val result = dashboardReadService.getAttendanceSummary(ownerId, targetDate, false)
+
+        // Then
+        assertEquals(3, result.summary.scheduledCount)
+        assertEquals(2, result.summary.checkedInCount) // s1, s3
+        assertEquals(1, result.summary.notCheckedInCount) // s2
+        assertEquals(1, result.summary.notCheckedOutCount) // s3
+        
+        assertEquals(2, result.exceptions.size)
+        // 정렬: StartTime 오름차순. s2(10시, NoCheckIn), s3(11시, NoCheckOut)
+        // 하지만 미출근이 먼저 나오는지 정렬 로직 확인 필요 (현재 코드엔 예외 타입별 정렬 없음, 스케줄 순서대로 추가됨)
+        // 스케줄은 StartTime 정렬됨 -> s2가 s3보다 먼저? 
+        // s1(9시) -> Normal
+        // s2(10시) -> Exception(NoCheckin) added
+        // s3(11시) -> Exception(NoCheckout) added
+        // So Exception List: [NoCheckin, NoCheckout]
+        assertEquals(com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionType.SCHEDULE_EXISTS_BUT_NO_CHECKIN, result.exceptions[0].type)
+        assertEquals(com.worktime.adapter.input.web.dto.dashboard.AttendanceExceptionType.CHECKIN_EXISTS_BUT_NO_CHECKOUT, result.exceptions[1].type)
+    }
+
+    @Test
+    @DisplayName("Attendance: 날짜 범위 밖의 스케줄은 제외됨")
+    fun attendance_dateRange_shouldExcludeOutliers() {
+        // Given
+        // targetDate: 2025-12-15 (Monday)
+        val s1 = createSchedule(9, 18) // Today
+        val s2 = Schedule(
+            worker = worker,
+            startAtUtc = OffsetDateTime.of(2025, 12, 16, 9, 0, 0, 0, java.time.ZoneOffset.UTC), // Tomorrow
+            endAtUtc = OffsetDateTime.of(2025, 12, 16, 18, 0, 0, 0, java.time.ZoneOffset.UTC),
+            timezone = "Asia/Seoul",
+            status = ScheduleStatus.CONFIRMED
+        )
+        
+        whenever(scheduleRepository.findByOwnerAndStatusIn(any(), any())).thenReturn(listOf(s1, s2))
+        // s1만 타겟이므로 s1 ID로 조회할 것
+        whenever(workLogRepository.findByScheduleIds(any())).thenReturn(emptyList())
+
+        // When
+        val result = dashboardReadService.getAttendanceSummary(ownerId, targetDate, false)
+
+        // Then
+        assertEquals(1, result.summary.scheduledCount) // Only s1
+    }
+
+    // Helper
+    private fun createSchedule(startHour: Int, endHour: Int): Schedule {
+        return Schedule(
+            id = UUID.randomUUID(),
+            worker = worker,
+            // Simple UTC setup for test
+            startAtUtc = OffsetDateTime.of(targetDate.year, targetDate.monthValue, targetDate.dayOfMonth, startHour, 0, 0, 0, java.time.ZoneOffset.UTC),
+            endAtUtc = OffsetDateTime.of(targetDate.year, targetDate.monthValue, targetDate.dayOfMonth, endHour, 0, 0, 0, java.time.ZoneOffset.UTC),
+            timezone = "Asia/Seoul",
+            status = ScheduleStatus.CONFIRMED
+        )
     }
 }
+
 

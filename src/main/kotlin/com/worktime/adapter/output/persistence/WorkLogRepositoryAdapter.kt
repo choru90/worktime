@@ -68,4 +68,9 @@ class WorkLogRepositoryAdapter(
     ): List<WorkLog> {
         return workLogJpaRepository.findOngoingOlderThan(ownerId, thresholdTime)
     }
+
+    override fun findByScheduleIds(scheduleIds: List<UUID>): List<WorkLog> {
+        if (scheduleIds.isEmpty()) return emptyList()
+        return workLogJpaRepository.findByScheduleIdIn(scheduleIds)
+    }
 }

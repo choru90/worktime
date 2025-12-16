@@ -60,4 +60,9 @@ interface WorkLogRepository {
         ownerId: UUID,
         thresholdTime: OffsetDateTime
     ): List<WorkLog>
+
+    /**
+     * Find work logs by schedule IDs (Batch fetch)
+     */
+    fun findByScheduleIds(scheduleIds: List<UUID>): List<WorkLog>
 }
