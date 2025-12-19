@@ -31,11 +31,7 @@ class User(
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    var role: UserRole,
-    
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "worker_id", columnDefinition = "BINARY(16)")
-    var worker: Worker? = null
+    var role: UserRole
 ) : BaseEntity() {
     
     override fun equals(other: Any?): Boolean {

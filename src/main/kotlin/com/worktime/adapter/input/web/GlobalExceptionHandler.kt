@@ -71,6 +71,20 @@ class GlobalExceptionHandler {
         )
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse)
     }
+    
+    @ExceptionHandler(EmailAlreadyExistsException::class)
+    fun handleEmailAlreadyExistsException(
+        ex: EmailAlreadyExistsException,
+        request: WebRequest
+    ): ResponseEntity<ErrorResponse> {
+        val errorResponse = ErrorResponse(
+            status = HttpStatus.CONFLICT.value(),
+            error = "EMAIL_ALREADY_EXISTS",
+            message = ex.message ?: "Email already exists",
+            path = request.getDescription(false).removePrefix("uri=")
+        )
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse)
+    }
 
 
     @ExceptionHandler(InvalidScheduleStateException::class, InvalidWorkLogStateException::class)

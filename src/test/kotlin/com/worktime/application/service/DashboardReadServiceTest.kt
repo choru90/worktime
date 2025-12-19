@@ -30,7 +30,9 @@ class DashboardReadServiceTest {
 
     private val ownerId = UUID.randomUUID()
     private val workerId = UUID.randomUUID()
-    private val worker = Worker(id = workerId, name = "Test Worker", phoneNumber = "010-1234-5678", owner = User(id = ownerId, email = "o", password = "p", name = "n", role = UserRole.OWNER))
+    private val user = User(id = ownerId, email = "o", password = "p", name = "n", role = UserRole.OWNER)
+    private val owner = Owner(id = UUID.randomUUID(), user = user)
+    private val worker = Worker(id = workerId, name = "Test Worker", phoneNumber = "010-1234-5678", owner = owner)
     
     // KST 2025-12-15
     private val targetDate = LocalDate.of(2025, 12, 15)

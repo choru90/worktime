@@ -3,6 +3,7 @@ package com.worktime.application.service
 import com.worktime.adapter.input.web.dto.worker.*
 import com.worktime.application.port.input.WageContractUseCase
 import com.worktime.application.port.input.WorkerUseCase
+import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.ResourceNotFoundException
 import com.worktime.domain.model.Worker
@@ -18,11 +19,11 @@ import java.util.*
 class WorkerService(
     private val workerRepository: WorkerRepository,
     private val wageContractUseCase: WageContractUseCase,
-    private val userRepository: com.worktime.application.port.output.UserRepository
+    private val ownerRepository: OwnerRepository
 ) : WorkerUseCase {
 
     override fun createWorker(ownerId: UUID, request: WorkerCreateRequest): WorkerResponse {
-        val owner = userRepository.findById(ownerId)
+        val owner = ownerRepository.findById(ownerId)
             ?: throw ResourceNotFoundException("Owner not found with id: $ownerId")
 
         val worker = Worker(

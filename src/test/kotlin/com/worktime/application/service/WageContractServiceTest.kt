@@ -40,12 +40,15 @@ class WageContractServiceTest {
             id = workerId,
             name = "Test Worker",
             phoneNumber = "01012345678",
-            owner = com.worktime.domain.model.User(
+            owner = com.worktime.domain.model.Owner(
                 id = UUID.randomUUID(),
-                email = "owner@test.com",
-                password = "pw",
-                name = "Owner",
-                role = com.worktime.domain.model.UserRole.OWNER
+                user = com.worktime.domain.model.User(
+                    id = UUID.randomUUID(),
+                    email = "owner@test.com",
+                    password = "pw",
+                    name = "Owner",
+                    role = com.worktime.domain.model.UserRole.OWNER
+                )
             )
         )
     }

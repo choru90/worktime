@@ -34,6 +34,10 @@ dependencies {
     // Database
     runtimeOnly("com.mysql:mysql-connector-j")
     
+    // Flyway
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-mysql")
+    
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.3")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.3")

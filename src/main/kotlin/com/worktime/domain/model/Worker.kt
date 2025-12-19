@@ -22,7 +22,11 @@ class Worker(
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false, foreignKey = ForeignKey(name = "fk_worker_owner"))
-    var owner: User,
+    var owner: Owner,
+    
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_account_id", foreignKey = ForeignKey(name = "fk_worker_user_account"))
+    var userAccount: User? = null,
     
     @Column(nullable = false)
     var active: Boolean = true

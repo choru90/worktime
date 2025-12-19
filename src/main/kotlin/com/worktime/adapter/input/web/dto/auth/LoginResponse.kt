@@ -11,5 +11,7 @@ data class LoginResponse(
     val tokenType: String = "Bearer",
     val userId: UUID,
     val role: UserRole,
+    val ownerId: UUID? = null,
     val workerId: UUID? = null
 )
+

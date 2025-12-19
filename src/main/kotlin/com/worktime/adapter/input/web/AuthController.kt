@@ -2,6 +2,7 @@ package com.worktime.adapter.input.web
 
 import com.worktime.adapter.input.web.dto.auth.LoginRequest
 import com.worktime.adapter.input.web.dto.auth.LoginResponse
+import com.worktime.adapter.input.web.dto.auth.OwnerSignUpRequest
 import com.worktime.adapter.input.web.dto.auth.SignUpRequest
 import com.worktime.application.port.input.AuthUseCase
 import io.swagger.v3.oas.annotations.Operation
@@ -33,6 +34,18 @@ class AuthController(
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
     
+    @PostMapping("/owners/signup")
+    @Operation(
+        summary = "사장님 회원가입",
+        description = "새로운 사장님(Owner) 계정을 생성합니다"
+    )
+    fun signUpOwner(
+        @Valid @RequestBody request: OwnerSignUpRequest
+    ): ResponseEntity<LoginResponse> {
+        val response = authUseCase.signUpOwner(request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
+    
     @PostMapping("/login")
     @Operation(
         summary = "로그인",
@@ -45,3 +58,4 @@ class AuthController(
         return ResponseEntity.ok(response)
     }
 }
+

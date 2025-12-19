@@ -3,8 +3,12 @@ package com.worktime.application.service
 import com.worktime.adapter.input.web.dto.worker.WorkerCreateRequest
 import com.worktime.adapter.input.web.dto.worker.WorkerUpdateRequest
 import com.worktime.application.port.input.WageContractUseCase
+import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.ResourceNotFoundException
+import com.worktime.domain.model.Owner
+import com.worktime.domain.model.User
+import com.worktime.domain.model.UserRole
 import com.worktime.domain.model.Worker
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -22,32 +26,39 @@ class WorkerServiceTest {
 
     private lateinit var workerRepository: WorkerRepository
     private lateinit var wageContractUseCase: WageContractUseCase
-    private lateinit var userRepository: com.worktime.application.port.output.UserRepository
+    private lateinit var ownerRepository: OwnerRepository
     private lateinit var service: WorkerService
     
     private lateinit var testWorker: Worker
+    private lateinit var testOwner: Owner
     private val workerId = UUID.randomUUID()
     private val ownerId = UUID.randomUUID()
-    private val owner = com.worktime.domain.model.User(
-        id = ownerId,
+    private val userId = UUID.randomUUID()
+    private val user = User(
+        id = userId,
         email = "test@example.com",
         password = "password",
         name = "Owner",
-        role = com.worktime.domain.model.UserRole.OWNER
+        role = UserRole.OWNER
     )
 
     @BeforeEach
     fun setUp() {
         workerRepository = mock(WorkerRepository::class.java)
         wageContractUseCase = mock(WageContractUseCase::class.java)
-        userRepository = mock(com.worktime.application.port.output.UserRepository::class.java)
-        service = WorkerService(workerRepository, wageContractUseCase, userRepository)
+        ownerRepository = mock(OwnerRepository::class.java)
+        service = WorkerService(workerRepository, wageContractUseCase, ownerRepository)
+        
+        testOwner = Owner(
+            id = ownerId,
+            user = user
+        )
         
         testWorker = Worker(
             id = workerId,
             name = "Test Worker",
             phoneNumber = "01012345678",
-            owner = owner
+            owner = testOwner
         )
     }
 
@@ -59,7 +70,7 @@ class WorkerServiceTest {
             phoneNumber = "01098765432"
         )
         
-        whenever(userRepository.findById(ownerId)).thenReturn(owner)
+        whenever(ownerRepository.findById(ownerId)).thenReturn(testOwner)
         whenever(workerRepository.save(any())).thenAnswer { it.arguments[0] }
         
         // When
