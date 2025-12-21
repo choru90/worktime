@@ -22,9 +22,9 @@ class WorkerService(
     private val ownerRepository: OwnerRepository
 ) : WorkerUseCase {
 
-    override fun createWorker(ownerId: UUID, request: WorkerCreateRequest): WorkerResponse {
-        val owner = ownerRepository.findById(ownerId)
-            ?: throw ResourceNotFoundException("Owner not found with id: $ownerId")
+    override fun createWorker(userId: UUID, request: WorkerCreateRequest): WorkerResponse {
+        val owner = ownerRepository.findByUserId(userId)
+            ?: throw ResourceNotFoundException("Owner not found for user id: $userId")
 
         val worker = Worker(
             name = request.name,

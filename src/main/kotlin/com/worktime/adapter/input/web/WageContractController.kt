@@ -51,4 +51,16 @@ class WageContractController(
         val response = wageContractUseCase.getWageOnDate(workerId, date)
         return ResponseEntity.ok(response)
     }
+
+    @GetMapping("/wage-contracts")
+    @Operation(
+        summary = "시급 계약 목록 조회",
+        description = "근로자의 시급 계약 이력을 조회합니다"
+    )
+    fun getWageContracts(
+        @Parameter(description = "근로자 ID") @PathVariable workerId: UUID
+    ): ResponseEntity<List<WageContractResponse>> {
+        val response = wageContractUseCase.getWageContractsByWorkerId(workerId)
+        return ResponseEntity.ok(response)
+    }
 }

@@ -66,11 +66,17 @@ class WageContractService(
             .map { WageContractResponse.from(it) }
     }
 
+    override fun getWageContractsByWorkerId(workerId: UUID): List<WageContractResponse> {
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        return getWageHistory(worker)
+    }
+
     /**
      * Validate that the new contract period does not overlap with existing contracts.
      */
     private fun validateNonOverlapping(worker: Worker, startDate: LocalDate, endDate: LocalDate?) {
-        val effectiveEndDate = endDate ?: LocalDate.MAX
+        val effectiveEndDate = endDate ?: LocalDate.of(2999, 12, 31)
         
         val overlappingContracts = wageContractRepository.findContractsOverlappingPeriod(
             worker = worker,

@@ -7,7 +7,7 @@ import java.util.*
  * Input port (Use Case) for Worker operations.
  */
 interface WorkerUseCase {
-    fun createWorker(ownerId: UUID, request: WorkerCreateRequest): WorkerResponse
+    fun createWorker(userId: UUID, request: WorkerCreateRequest): WorkerResponse
     fun updateWorker(id: UUID, request: WorkerUpdateRequest): WorkerResponse
     fun deleteWorker(id: UUID)
     fun getWorkerById(id: UUID): WorkerResponse

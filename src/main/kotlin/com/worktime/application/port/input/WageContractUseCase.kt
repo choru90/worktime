@@ -15,4 +15,5 @@ interface WageContractUseCase {
     fun getWageOnDate(workerId: UUID, date: LocalDate): WageInfoResponse
     fun getCurrentWageContract(worker: Worker): WageContractResponse?
     fun getWageHistory(worker: Worker): List<WageContractResponse>
+    fun getWageContractsByWorkerId(workerId: UUID): List<WageContractResponse>
 }
