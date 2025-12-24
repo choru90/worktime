@@ -40,4 +40,9 @@ interface WorkerJpaRepository : JpaRepository<Worker, UUID> {
      * Find worker by user account ID
      */
     fun findByUserAccountId(userId: UUID): Worker?
+    
+    /**
+     * Find worker by invite code
+     */
+    fun findByInviteCode(inviteCode: String): Worker?
 }

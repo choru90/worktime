@@ -45,6 +45,10 @@ class WorkerRepositoryAdapter(
         return jpaRepository.findByUserAccountId(userId)
     }
 
+    override fun findByInviteCode(inviteCode: String): Worker? {
+        return jpaRepository.findByInviteCode(inviteCode)
+    }
+
     override fun delete(worker: Worker) {
         jpaRepository.delete(worker)
     }

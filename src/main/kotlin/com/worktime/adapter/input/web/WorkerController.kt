@@ -88,4 +88,16 @@ class WorkerController(
         val response = workerUseCase.getAllWorkers(active)
         return ResponseEntity.ok(response)
     }
+
+    @PostMapping("/{id}/invite")
+    @Operation(
+        summary = "알바생 초대 코드 생성",
+        description = "알바생 계정 연결을 위한 초대 코드를 생성합니다 (24시간 유효)"
+    )
+    fun generateInviteCode(
+        @Parameter(description = "근로자 ID") @PathVariable id: UUID
+    ): ResponseEntity<InviteCodeResponse> {
+        val response = workerUseCase.generateInviteCode(id)
+        return ResponseEntity.ok(response)
+    }
 }

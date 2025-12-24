@@ -4,6 +4,7 @@ import com.worktime.adapter.input.web.dto.auth.LoginRequest
 import com.worktime.adapter.input.web.dto.auth.LoginResponse
 import com.worktime.adapter.input.web.dto.auth.OwnerSignUpRequest
 import com.worktime.adapter.input.web.dto.auth.SignUpRequest
+import com.worktime.adapter.input.web.dto.auth.WorkerSignUpRequest
 import com.worktime.application.port.input.AuthUseCase
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -43,6 +44,18 @@ class AuthController(
         @Valid @RequestBody request: OwnerSignUpRequest
     ): ResponseEntity<LoginResponse> {
         val response = authUseCase.signUpOwner(request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
+    
+    @PostMapping("/workers/signup")
+    @Operation(
+        summary = "알바생 회원가입",
+        description = "초대 코드를 사용하여 알바생 계정을 생성합니다"
+    )
+    fun signUpWorker(
+        @Valid @RequestBody request: WorkerSignUpRequest
+    ): ResponseEntity<LoginResponse> {
+        val response = authUseCase.signUpWorker(request)
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
     }
     

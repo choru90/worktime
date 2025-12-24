@@ -22,6 +22,9 @@ data class WorkerResponse(
     @Schema(description = "Active status")
     val active: Boolean,
     
+    @Schema(description = "계정 연결 여부")
+    val hasAccount: Boolean,
+    
     @Schema(description = "Created timestamp")
     val createdAt: Instant,
     
@@ -35,6 +38,7 @@ data class WorkerResponse(
                 name = worker.name,
                 phoneNumber = worker.phoneNumber,
                 active = worker.active,
+                hasAccount = worker.userAccount != null,
                 createdAt = worker.createdAt,
                 updatedAt = worker.updatedAt
             )

@@ -86,4 +86,23 @@ class WorkerService(
         
         return workers.map { WorkerResponse.from(it) }
     }
+    
+    override fun generateInviteCode(workerId: UUID): InviteCodeResponse {
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        
+        // 이미 계정이 연결된 경우 에러
+        if (worker.userAccount != null) {
+            throw com.worktime.domain.exception.BusinessException("이미 계정이 연결된 알바생입니다.")
+        }
+        
+        val code = worker.generateInviteCode()
+        val savedWorker = workerRepository.save(worker)
+        
+        return InviteCodeResponse(
+            inviteCode = code,
+            expiresAt = savedWorker.inviteCodeExpiresAt!!,
+            workerName = savedWorker.name
+        )
+    }
 }
