@@ -158,6 +158,77 @@ class PayrollService(
         }
     }
     
+    override fun getWorkerMonthlyPayrollDetail(
+        workerId: UUID,
+        year: Int,
+        month: Int
+    ): com.worktime.adapter.input.web.dto.payroll.WorkerPayrollDetailResponse {
+        // Validate year and month
+        if (year < 1900 || year > 2100) {
+            throw BusinessException("Invalid year: $year")
+        }
+        if (month < 1 || month > 12) {
+            throw BusinessException("Invalid month: $month")
+        }
+        
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        
+        // Calculate date range for the month
+        val from = LocalDate.of(year, month, 1)
+        val to = from.plusMonths(1).minusDays(1)
+        
+        // Convert LocalDate to OffsetDateTime for query
+        val fromDateTime = from.atStartOfDay().atOffset(ZoneOffset.UTC)
+        val toDateTime = to.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)
+        
+        // Find completed work logs in range
+        val workLogs = workLogRepository.findCompletedWorkLogsInRange(
+            worker = worker,
+            startTime = fromDateTime,
+            endTime = toDateTime
+        )
+        
+        // Calculate daily details
+        val dailyDetails = workLogs
+            .groupBy { workLog -> workLog.clockInAt.toLocalDate() }
+            .map { (date, logs) ->
+                val dailyMinutes = logs.sumOf { it.calculateDuration()?.toMinutes() ?: 0L }
+                val dailyHours = dailyMinutes / 60.0
+                
+                // Get wage contract for the date
+                val wageInfo = wageContractUseCase.getWageOnDate(workerId, date)
+                val hourlyWage = wageInfo.hourlyWage ?: BigDecimal.ZERO
+                val amount = hourlyWage.multiply(BigDecimal.valueOf(dailyHours))
+                    .setScale(0, RoundingMode.HALF_UP)
+                
+                com.worktime.adapter.input.web.dto.payroll.DailyPayrollDetail(
+                    date = date.toString(),
+                    workMinutes = dailyMinutes,
+                    workHours = dailyHours,
+                    hourlyWage = hourlyWage,
+                    amount = amount
+                )
+            }
+            .sortedBy { it.date }
+        
+        // Calculate totals
+        val totalWorkMinutes = dailyDetails.sumOf { it.workMinutes }
+        val totalWorkHours = totalWorkMinutes / 60.0
+        val totalAmount = dailyDetails.sumOf { it.amount }
+        
+        return com.worktime.adapter.input.web.dto.payroll.WorkerPayrollDetailResponse(
+            workerId = worker.id,
+            workerName = worker.name,
+            year = year,
+            month = month,
+            totalWorkMinutes = totalWorkMinutes,
+            totalWorkHours = totalWorkHours,
+            totalAmount = totalAmount,
+            dailyDetails = dailyDetails
+        )
+    }
+    
     /**
      * Calculate wage detail for a single work log
      */
@@ -197,3 +268,4 @@ class PayrollService(
         }
     }
 }
+

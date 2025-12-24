@@ -35,4 +35,9 @@ interface WorkerJpaRepository : JpaRepository<Worker, UUID> {
      * Check if a worker exists with the given phone number
      */
     fun existsByPhoneNumber(phoneNumber: String): Boolean
+    
+    /**
+     * Find worker by user account ID
+     */
+    fun findByUserAccountId(userId: UUID): Worker?
 }

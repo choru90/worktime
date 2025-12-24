@@ -1,6 +1,7 @@
 package com.worktime.adapter.input.web
 
 import com.worktime.adapter.input.web.dto.payroll.PayrollResponse
+import com.worktime.adapter.input.web.dto.payroll.WorkerPayrollDetailResponse
 import com.worktime.application.port.input.PayrollUseCase
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -30,4 +31,17 @@ class OwnerPayrollController(
         val response = payrollUseCase.getMonthlyPayrollSummary(year, month, workerId)
         return ResponseEntity.ok(response)
     }
+    
+    @GetMapping("/workers/{workerId}/monthly")
+    @Operation(summary = "특정 근로자 월별 급여 상세 조회", description = "특정 근로자의 월별 급여 상세를 조회합니다 (OWNER 전용)")
+    @PreAuthorize("hasRole('OWNER')")
+    fun getWorkerMonthlyPayrollDetail(
+        @PathVariable workerId: UUID,
+        @RequestParam year: Int,
+        @RequestParam month: Int
+    ): ResponseEntity<WorkerPayrollDetailResponse> {
+        val response = payrollUseCase.getWorkerMonthlyPayrollDetail(workerId, year, month)
+        return ResponseEntity.ok(response)
+    }
 }
+

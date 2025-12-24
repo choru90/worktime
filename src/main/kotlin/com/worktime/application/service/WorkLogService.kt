@@ -167,4 +167,12 @@ class WorkLogService(
         val savedWorkLog = workLogRepository.save(workLog)
         return WorkLogResponse.from(savedWorkLog)
     }
+    
+    override fun getCurrentOngoingWorkLog(workerId: UUID): WorkLogResponse? {
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        
+        val workLog = workLogRepository.findCurrentOngoingWorkLog(worker)
+        return workLog?.let { WorkLogResponse.from(it) }
+    }
 }

@@ -55,4 +55,9 @@ interface WorkLogUseCase {
      * 근무 기록 반려 (OWNER가 거절)
      */
     fun rejectWorkLog(workLogId: UUID, reason: String?): WorkLogResponse
+    
+    /**
+     * 근로자의 현재 진행중인 근무 기록 조회
+     */
+    fun getCurrentOngoingWorkLog(workerId: UUID): WorkLogResponse?
 }

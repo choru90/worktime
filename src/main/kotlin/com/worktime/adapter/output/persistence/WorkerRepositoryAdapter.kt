@@ -41,6 +41,10 @@ class WorkerRepositoryAdapter(
         return jpaRepository.existsByPhoneNumber(phoneNumber)
     }
 
+    override fun findByUserAccountId(userId: UUID): Worker? {
+        return jpaRepository.findByUserAccountId(userId)
+    }
+
     override fun delete(worker: Worker) {
         jpaRepository.delete(worker)
     }

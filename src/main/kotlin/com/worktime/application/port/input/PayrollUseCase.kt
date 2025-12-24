@@ -36,4 +36,13 @@ interface PayrollUseCase {
         month: Int,
         workerId: UUID?
     ): List<PayrollResponse>
+    
+    /**
+     * 특정 근로자 월별 급여 상세 조회
+     */
+    fun getWorkerMonthlyPayrollDetail(
+        workerId: UUID,
+        year: Int,
+        month: Int
+    ): com.worktime.adapter.input.web.dto.payroll.WorkerPayrollDetailResponse
 }
