@@ -68,12 +68,12 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
     ): List<WorkLog>
     
     /**
-     * Find completed work logs for a worker within a time range
+     * Find completed or confirmed work logs for a worker within a time range
      */
     @Query("""
         SELECT wl FROM WorkLog wl 
         WHERE wl.worker = :worker 
-        AND wl.status = 'COMPLETED'
+        AND wl.status IN ('COMPLETED', 'CONFIRMED')
         AND wl.clockInAt >= :startTime 
         AND wl.clockOutAt <= :endTime
         ORDER BY wl.clockInAt DESC
@@ -160,7 +160,7 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
     @Query("""
         SELECT wl FROM WorkLog wl 
         WHERE wl.worker.owner.id = :ownerId 
-        AND wl.status = 'COMPLETED'
+        AND wl.status IN ('COMPLETED', 'CONFIRMED')
         AND wl.clockOutAt IS NOT NULL
         AND wl.clockInAt >= :startTime 
         AND wl.clockOutAt <= :endTime

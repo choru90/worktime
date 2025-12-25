@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
 import java.util.*
 
@@ -28,7 +29,9 @@ class OwnerPayrollController(
         @RequestParam month: Int,
         @RequestParam(required = false) workerId: UUID?
     ): ResponseEntity<List<PayrollResponse>> {
-        val response = payrollUseCase.getMonthlyPayrollSummary(year, month, workerId)
+        val authentication = SecurityContextHolder.getContext().authentication
+        val userId = UUID.fromString(authentication.name)
+        val response = payrollUseCase.getMonthlyPayrollSummary(userId, year, month, workerId)
         return ResponseEntity.ok(response)
     }
     

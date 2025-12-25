@@ -32,6 +32,7 @@ interface PayrollUseCase {
      * 월별 급여 요약 조회 (OWNER 전용)
      */
     fun getMonthlyPayrollSummary(
+        userId: UUID,
         year: Int,
         month: Int,
         workerId: UUID?

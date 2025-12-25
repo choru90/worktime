@@ -8,6 +8,7 @@ import com.worktime.adapter.input.web.dto.summary.WorkSummaryResponse
 import com.worktime.adapter.input.web.dto.worklog.WorkLogResponse
 import com.worktime.application.port.input.PayrollUseCase
 import com.worktime.application.port.input.WageContractUseCase
+import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.WorkLogRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.BusinessException
@@ -29,6 +30,7 @@ import java.util.*
 class PayrollService(
     private val workLogRepository: WorkLogRepository,
     private val workerRepository: WorkerRepository,
+    private val ownerRepository: OwnerRepository,
     private val wageContractUseCase: WageContractUseCase
 ) : PayrollUseCase {
     
@@ -127,6 +129,7 @@ class PayrollService(
         )    }
     
     override fun getMonthlyPayrollSummary(
+        userId: UUID,
         year: Int,
         month: Int,
         workerId: UUID?
@@ -139,17 +142,25 @@ class PayrollService(
             throw BusinessException("Invalid month: $month")
         }
         
+        // Get owner by userId
+        val owner = ownerRepository.findByUserId(userId)
+            ?: throw ResourceNotFoundException("Owner not found for userId: $userId")
+        
         // Calculate date range for the month
         val from = LocalDate.of(year, month, 1)
         val to = from.plusMonths(1).minusDays(1)
         
-        // Get workers to calculate payroll for
+        // Get workers to calculate payroll for (filter by owner)
         val workers = if (workerId != null) {
             val worker = workerRepository.findById(workerId)
                 ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+            // Verify the worker belongs to this owner
+            if (worker.owner.id != owner.id) {
+                throw BusinessException("Worker does not belong to this owner")
+            }
             listOf(worker)
         } else {
-            workerRepository.findAll()
+            workerRepository.findByOwner(owner.id)
         }
         
         // Calculate payroll for each worker
