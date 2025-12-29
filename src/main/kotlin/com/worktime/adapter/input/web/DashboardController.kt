@@ -2,6 +2,8 @@ package com.worktime.adapter.input.web
 
 import com.worktime.adapter.input.web.dto.dashboard.DashboardSummaryResponse
 import com.worktime.application.port.input.DashboardReadUseCase
+import com.worktime.application.port.output.OwnerRepository
+import com.worktime.domain.exception.ResourceNotFoundException
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -24,7 +26,8 @@ import java.util.*
 @RequestMapping("/api/owner/dashboard")
 @Tag(name = "Dashboard", description = "사장용 대시보드 KPI API")
 class DashboardController(
-    private val dashboardReadUseCase: DashboardReadUseCase
+    private val dashboardReadUseCase: DashboardReadUseCase,
+    private val ownerRepository: OwnerRepository
 ) {
 
     @GetMapping("/summary")
@@ -118,7 +121,10 @@ class DashboardController(
 
     private fun getCurrentOwnerId(): UUID {
         val authentication = SecurityContextHolder.getContext().authentication
-        // name이 ID(UUID)라고 가정하는 컨벤션 따름
-        return UUID.fromString(authentication.name)
+        val userId = UUID.fromString(authentication.name)
+        val owner = ownerRepository.findByUserId(userId)
+            ?: throw ResourceNotFoundException("Owner not found for userId: $userId")
+        return owner.id
     }
 }
+
