@@ -48,6 +48,7 @@ interface ScheduleUseCase {
      * 전체 스케줄 조회 (OWNER용, 필터 지원)
      */
     fun getAllSchedules(
+        userId: UUID,
         from: OffsetDateTime?,
         to: OffsetDateTime?,
         workerId: UUID?,

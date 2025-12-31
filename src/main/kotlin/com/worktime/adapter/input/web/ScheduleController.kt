@@ -103,7 +103,9 @@ class ScheduleController(
         @RequestParam(required = false)
         status: ScheduleStatus?
     ): ResponseEntity<ScheduleListResponse> {
-        val schedules = scheduleUseCase.getAllSchedules(from, to, workerId, status)
+        val authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().authentication
+        val userId = UUID.fromString(authentication.name)
+        val schedules = scheduleUseCase.getAllSchedules(userId, from, to, workerId, status)
         val response = ScheduleListResponse.from(schedules)
         return ResponseEntity.ok(response)
     }

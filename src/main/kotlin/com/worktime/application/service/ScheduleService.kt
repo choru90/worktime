@@ -4,8 +4,10 @@ import com.worktime.adapter.input.web.dto.schedule.ScheduleCreateRequest
 import com.worktime.adapter.input.web.dto.schedule.ScheduleRequestType
 import com.worktime.adapter.input.web.dto.schedule.ScheduleResponse
 import com.worktime.application.port.input.ScheduleUseCase
+import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.ScheduleRepository
 import com.worktime.application.port.output.WorkerRepository
+import com.worktime.domain.exception.BusinessException
 import com.worktime.domain.exception.InvalidScheduleStateException
 import com.worktime.domain.exception.ResourceNotFoundException
 import com.worktime.domain.exception.ScheduleConflictException
@@ -23,7 +25,8 @@ import java.util.*
 @Transactional
 class ScheduleService(
     private val scheduleRepository: ScheduleRepository,
-    private val workerRepository: WorkerRepository
+    private val workerRepository: WorkerRepository,
+    private val ownerRepository: OwnerRepository
 ) : ScheduleUseCase {
     
     override fun createSchedule(request: ScheduleCreateRequest): ScheduleResponse {
@@ -132,17 +135,25 @@ class ScheduleService(
     }
     
     override fun getAllSchedules(
+        userId: UUID,
         from: OffsetDateTime?,
         to: OffsetDateTime?,
         workerId: UUID?,
         status: ScheduleStatus?
     ): List<ScheduleResponse> {
-        // Filter by workerId if provided
+        // Get owner from userId
+        val owner = ownerRepository.findByUserId(userId)
+            ?: throw ResourceNotFoundException("Owner not found for userId: $userId")
+        
+        // Filter by workerId if provided, otherwise get all schedules for owner
         val schedules = when {
             workerId != null -> {
                 val worker = workerRepository.findById(workerId)
                     ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
-                
+                // Verify worker belongs to this owner
+                if (worker.owner.id != owner.id) {
+                    throw BusinessException("Worker does not belong to this owner")
+                }
                 if (from != null && to != null) {
                     scheduleRepository.findByWorkerAndTimeRange(worker, from, to)
                 } else {
@@ -150,7 +161,7 @@ class ScheduleService(
                 }
             }
             from != null && to != null -> {
-                scheduleRepository.findByTimeRange(from, to)
+                scheduleRepository.findByOwnerAndTimeRange(owner.id, from, to)
             }
             else -> emptyList()
         }
