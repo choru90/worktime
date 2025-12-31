@@ -44,7 +44,11 @@ jwt:
 logging:
   level:
     com.worktime: DEBUG
+    # Hibernate SQL 로깅
     org.hibernate.SQL: DEBUG
+    # Hibernate 6.x 파라미터 바인딩 로깅
+    org.hibernate.orm.jdbc.bind: TRACE
+    # Hibernate 5.x 호환 (필요 시)
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.flywaydb: DEBUG
 
