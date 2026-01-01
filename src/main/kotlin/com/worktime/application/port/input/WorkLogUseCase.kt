@@ -2,6 +2,7 @@ package com.worktime.application.port.input
 
 import com.worktime.adapter.input.web.dto.worklog.ClockInRequest
 import com.worktime.adapter.input.web.dto.worklog.ClockOutRequest
+import com.worktime.adapter.input.web.dto.worklog.ManualWorkLogRequest
 import com.worktime.adapter.input.web.dto.worklog.WorkLogResponse
 import com.worktime.domain.model.WorkLogStatus
 import java.time.OffsetDateTime
@@ -21,6 +22,11 @@ interface WorkLogUseCase {
      * 근로자 퇴근
      */
     fun clockOut(workerId: UUID, request: ClockOutRequest): WorkLogResponse
+    
+    /**
+     * 스케줄과 연결된 근무 기록 수동 생성
+     */
+    fun createManualWorkLog(workerId: UUID, scheduleId: UUID, request: ManualWorkLogRequest): WorkLogResponse
     
     /**
      * 특정 근무 기록 조회
@@ -61,3 +67,4 @@ interface WorkLogUseCase {
      */
     fun getCurrentOngoingWorkLog(workerId: UUID): WorkLogResponse?
 }
+

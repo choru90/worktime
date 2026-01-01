@@ -2,13 +2,18 @@ package com.worktime.adapter.input.web
 
 import com.worktime.adapter.input.web.dto.schedule.ScheduleListResponse
 import com.worktime.adapter.input.web.dto.schedule.ScheduleResponse
+import com.worktime.adapter.input.web.dto.worklog.ManualWorkLogRequest
+import com.worktime.adapter.input.web.dto.worklog.WorkLogResponse
 import com.worktime.application.port.input.ScheduleUseCase
+import com.worktime.application.port.input.WorkLogUseCase
 import com.worktime.application.port.output.UserRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.ResourceNotFoundException
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import org.springframework.format.annotation.DateTimeFormat
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.context.SecurityContextHolder
@@ -27,6 +32,7 @@ import java.util.*
 @PreAuthorize("hasRole('WORKER')")
 class WorkerScheduleController(
     private val scheduleUseCase: ScheduleUseCase,
+    private val workLogUseCase: WorkLogUseCase,
     private val userRepository: UserRepository,
     private val workerRepository: WorkerRepository
 ) {
@@ -84,4 +90,16 @@ class WorkerScheduleController(
         val response = scheduleUseCase.rejectSchedule(scheduleId)
         return ResponseEntity.ok(response)
     }
+    
+    @PostMapping("/{scheduleId}/worklog")
+    @Operation(summary = "근무 기록 수동 생성", description = "확정된 스케줄에 대한 실제 근무 시간을 입력합니다")
+    fun createWorkLog(
+        @PathVariable scheduleId: UUID,
+        @Valid @RequestBody request: ManualWorkLogRequest
+    ): ResponseEntity<WorkLogResponse> {
+        val workerId = getCurrentWorkerId()
+        val response = workLogUseCase.createManualWorkLog(workerId, scheduleId, request)
+        return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
 }
+

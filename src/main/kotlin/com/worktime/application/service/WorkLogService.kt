@@ -2,14 +2,17 @@ package com.worktime.application.service
 
 import com.worktime.adapter.input.web.dto.worklog.ClockInRequest
 import com.worktime.adapter.input.web.dto.worklog.ClockOutRequest
+import com.worktime.adapter.input.web.dto.worklog.ManualWorkLogRequest
 import com.worktime.adapter.input.web.dto.worklog.WorkLogResponse
 import com.worktime.application.port.input.WorkLogUseCase
 import com.worktime.application.port.output.ScheduleRepository
 import com.worktime.application.port.output.WorkLogRepository
 import com.worktime.application.port.output.WorkerRepository
+import com.worktime.domain.exception.BusinessException
 import com.worktime.domain.exception.InvalidWorkLogStateException
 import com.worktime.domain.exception.ResourceNotFoundException
 import com.worktime.domain.exception.WorkLogConflictException
+import com.worktime.domain.model.ScheduleStatus
 import com.worktime.domain.model.WorkLog
 import com.worktime.domain.model.WorkLogStatus
 import org.springframework.stereotype.Service
@@ -77,6 +80,38 @@ class WorkLogService(
         } catch (e: IllegalArgumentException) {
             throw InvalidWorkLogStateException(e.message ?: "Cannot clock out in current state")
         }
+        
+        val savedWorkLog = workLogRepository.save(workLog)
+        return WorkLogResponse.from(savedWorkLog)
+    }
+    
+    override fun createManualWorkLog(workerId: UUID, scheduleId: UUID, request: ManualWorkLogRequest): WorkLogResponse {
+        val worker = workerRepository.findById(workerId)
+            ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        
+        val schedule = scheduleRepository.findById(scheduleId)
+            ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
+        
+        // 스케줄이 현재 worker 소유인지 확인
+        if (schedule.worker.id != workerId) {
+            throw BusinessException("이 스케줄은 현재 알바생의 것이 아닙니다")
+        }
+        
+        // 스케줄이 CONFIRMED 상태인지 확인
+        if (schedule.status != ScheduleStatus.CONFIRMED) {
+            throw BusinessException("확정된 스케줄에만 근무 기록을 작성할 수 있습니다")
+        }
+        
+        // 이 스케줄에 이미 근무 기록이 있는지 확인
+        // (TODO: 필요시 스케줄ID로 조회하는 repository 메서드 추가)
+        
+        // WorkLog 생성 (출퇴근 완료 상태로 바로 생성)
+        val workLog = WorkLog(
+            worker = worker,
+            schedule = schedule,
+            clockInAt = request.clockInAt
+        )
+        workLog.clockOut(request.clockOutAt)  // COMPLETED 상태로 변경
         
         val savedWorkLog = workLogRepository.save(workLog)
         return WorkLogResponse.from(savedWorkLog)
