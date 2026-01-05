@@ -25,6 +25,13 @@ class Worker(
     @JoinColumn(name = "owner_id", nullable = false, foreignKey = ForeignKey(name = "fk_worker_owner"))
     var owner: Owner,
     
+    /**
+     * 소속 영업장 (null이면 Owner 소속 모든 영업장에서 근무 가능)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "store_id", foreignKey = ForeignKey(name = "fk_worker_store"))
+    var store: Store? = null,
+    
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_account_id", foreignKey = ForeignKey(name = "fk_worker_user_account"))
     var userAccount: User? = null,

@@ -38,6 +38,13 @@ class WorkLog(
     val schedule: Schedule? = null,
     
     /**
+     * 연결된 고정 근무 (선택사항 - 고정 근무인 경우)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "regular_shift_id", nullable = true, foreignKey = ForeignKey(name = "fk_work_log_regular_shift"))
+    val regularShift: RegularShift? = null,
+    
+    /**
      * UTC 기준 출근 시간
      * datetime(6)으로 저장됩니다
      */

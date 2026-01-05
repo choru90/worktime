@@ -30,6 +30,21 @@ class Schedule(
     val worker: Worker,
     
     /**
+     * 스케줄이 속한 영업장
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "store_id", foreignKey = ForeignKey(name = "fk_schedule_store"))
+    val store: Store? = null,
+    
+    /**
+     * 대체 근무인 경우, 어떤 고정 근무를 대체하는지
+     * null이면 추가 근무 요청
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "replacing_regular_shift_id", foreignKey = ForeignKey(name = "fk_schedule_regular_shift"))
+    val replacingRegularShift: RegularShift? = null,
+    
+    /**
      * UTC 기준 스케줄 시작 시간
      * datetime(6)으로 저장됩니다
      */
