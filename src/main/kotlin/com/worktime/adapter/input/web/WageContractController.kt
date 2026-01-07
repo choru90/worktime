@@ -63,4 +63,19 @@ class WageContractController(
         val response = wageContractUseCase.getWageContractsByWorkerId(workerId)
         return ResponseEntity.ok(response)
     }
+
+    @PatchMapping("/wage-contracts/{contractId}/terminate")
+    @Operation(
+        summary = "시급 계약 종료",
+        description = "활성 시급 계약의 종료일을 설정하여 계약을 종료합니다"
+    )
+    fun terminateWageContract(
+        @Parameter(description = "근로자 ID") @PathVariable workerId: UUID,
+        @Parameter(description = "계약 ID") @PathVariable contractId: UUID,
+        @Parameter(description = "종료일 (형식: YYYY-MM-DD)")
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) endDate: LocalDate
+    ): ResponseEntity<WageContractResponse> {
+        val response = wageContractUseCase.terminateWageContract(contractId, endDate)
+        return ResponseEntity.ok(response)
+    }
 }

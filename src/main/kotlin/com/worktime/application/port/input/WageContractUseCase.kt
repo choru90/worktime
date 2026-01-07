@@ -12,6 +12,7 @@ import java.util.*
  */
 interface WageContractUseCase {
     fun createWageContract(workerId: UUID, request: WageContractCreateRequest): WageContractResponse
+    fun terminateWageContract(contractId: UUID, endDate: LocalDate): WageContractResponse
     fun getWageOnDate(workerId: UUID, date: LocalDate): WageInfoResponse
     fun getCurrentWageContract(worker: Worker): WageContractResponse?
     fun getWageHistory(worker: Worker): List<WageContractResponse>

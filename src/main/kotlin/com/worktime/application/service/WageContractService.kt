@@ -43,6 +43,25 @@ class WageContractService(
         return WageContractResponse.from(savedContract)
     }
 
+    override fun terminateWageContract(contractId: UUID, endDate: LocalDate): WageContractResponse {
+        val contract = wageContractRepository.findById(contractId)
+            ?: throw ResourceNotFoundException("Wage contract not found with id: $contractId")
+        
+        // 종료일이 시작일보다 이전일 수 없음
+        if (endDate.isBefore(contract.startDate)) {
+            throw BusinessException("End date cannot be before start date (${contract.startDate})")
+        }
+        
+        // 이미 종료된 계약은 다시 종료할 수 없음
+        if (contract.endDate != null) {
+            throw BusinessException("Contract is already terminated on ${contract.endDate}")
+        }
+        
+        contract.endDate = endDate
+        val savedContract = wageContractRepository.save(contract)
+        return WageContractResponse.from(savedContract)
+    }
+
     override fun getWageOnDate(workerId: UUID, date: LocalDate): WageInfoResponse {
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
