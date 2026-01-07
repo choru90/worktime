@@ -29,8 +29,20 @@ class WageContractService(
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
         
-        // Validate non-overlapping periods
-        validateNonOverlapping(worker, request.startDate, request.endDate)
+        // 기존 활성 계약이 있으면 자동으로 종료
+        val currentActiveContract = wageContractRepository.findCurrentActiveContract(worker)
+        if (currentActiveContract != null) {
+            // 새 계약 시작일 전날로 종료
+            val endDate = request.startDate.minusDays(1)
+            if (endDate.isBefore(currentActiveContract.startDate)) {
+                throw BusinessException(
+                    "Cannot create new contract starting on ${request.startDate}. " +
+                    "Current contract starts on ${currentActiveContract.startDate}."
+                )
+            }
+            currentActiveContract.endDate = endDate
+            wageContractRepository.save(currentActiveContract)
+        }
         
         val contract = WageContract(
             worker = worker,
