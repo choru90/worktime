@@ -31,7 +31,8 @@ import java.util.*
 class WorkerWorkLogController(
     private val workLogUseCase: WorkLogUseCase,
     private val userRepository: UserRepository,
-    private val workerRepository: WorkerRepository
+    private val workerRepository: WorkerRepository,
+    private val scheduleUseCase: com.worktime.application.port.input.ScheduleUseCase
 ) {
     
     /**
@@ -82,10 +83,24 @@ class WorkerWorkLogController(
     @Operation(summary = "출근", description = "현재 시간으로 출근 처리합니다")
     fun clockIn(): ResponseEntity<WorkLogResponse> {
         val workerId = getCurrentWorkerId()
+        val now = OffsetDateTime.now()
+        
+        // 오늘의 확정 스케줄 찾기
+        val todayStart = now.toLocalDate().atStartOfDay().atOffset(ZoneOffset.UTC)
+        val todayEnd = todayStart.plusDays(1)
+        
+        val todaySchedules = scheduleUseCase.getSchedulesByWorker(workerId, todayStart, todayEnd)
+            .filter { it.status.name == "CONFIRMED" }
+        
+        // 현재 시간과 가장 가까운 스케줄 선택
+        val matchingSchedule = todaySchedules.minByOrNull { schedule ->
+            val startTime = schedule.startAtUtc
+            kotlin.math.abs(java.time.Duration.between(now, startTime).toMinutes())
+        }
         
         val request = ClockInRequest(
-            clockInAt = OffsetDateTime.now(),
-            scheduleId = null
+            clockInAt = now,
+            scheduleId = matchingSchedule?.id
         )
         
         val response = workLogUseCase.clockIn(workerId, request)
