@@ -2,6 +2,7 @@ package com.worktime.application.port.input
 
 import com.worktime.adapter.input.web.dto.schedule.ScheduleCreateRequest
 import com.worktime.adapter.input.web.dto.schedule.ScheduleResponse
+import com.worktime.adapter.input.web.dto.schedule.ScheduleUpdateRequest
 import java.time.OffsetDateTime
 import java.util.*
 
@@ -14,6 +15,11 @@ interface ScheduleUseCase {
      * 스케줄 생성 (근로자 요청 또는 고용주 제안)
      */
     fun createSchedule(request: ScheduleCreateRequest): ScheduleResponse
+
+    /**
+     * 스케줄 시간 수정
+     */
+    fun updateScheduleTime(scheduleId: UUID, request: ScheduleUpdateRequest): ScheduleResponse
     
     /**
      * 스케줄 승인/확정

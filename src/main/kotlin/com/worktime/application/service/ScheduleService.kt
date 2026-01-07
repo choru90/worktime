@@ -3,6 +3,7 @@ package com.worktime.application.service
 import com.worktime.adapter.input.web.dto.schedule.ScheduleCreateRequest
 import com.worktime.adapter.input.web.dto.schedule.ScheduleRequestType
 import com.worktime.adapter.input.web.dto.schedule.ScheduleResponse
+import com.worktime.adapter.input.web.dto.schedule.ScheduleUpdateRequest
 import com.worktime.application.port.input.ScheduleUseCase
 import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.ScheduleRepository
@@ -63,6 +64,37 @@ class ScheduleService(
             timezone = request.timezone,
             status = status
         )
+        
+        val savedSchedule = scheduleRepository.save(schedule)
+        return ScheduleResponse.from(savedSchedule)
+    }
+
+    override fun updateScheduleTime(scheduleId: UUID, request: ScheduleUpdateRequest): ScheduleResponse {
+        val schedule = scheduleRepository.findById(scheduleId)
+            ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
+
+        // 시간 유효성 검사
+        if (!request.endAtUtc.isAfter(request.startAtUtc)) {
+             throw IllegalArgumentException("End time must be after start time")
+        }
+
+        // 중복 체크 (자신 제외)
+        val overlappingSchedules = scheduleRepository.findConfirmedSchedulesOverlapping(
+            schedule.worker, request.startAtUtc, request.endAtUtc
+        ).filter { it.id != scheduleId }
+
+        if (overlappingSchedules.isNotEmpty()) {
+            throw ScheduleConflictException(
+                "Schedule conflicts with existing confirmed schedule(s). " +
+                "Conflicting schedules: " +
+                overlappingSchedules.joinToString(", ") { 
+                    "${it.startAtUtc} ~ ${it.endAtUtc}" 
+                }
+            )
+        }
+
+        // 업데이트
+        schedule.updateTime(request.startAtUtc, request.endAtUtc, request.timezone)
         
         val savedSchedule = scheduleRepository.save(schedule)
         return ScheduleResponse.from(savedSchedule)
@@ -174,5 +206,69 @@ class ScheduleService(
         }
         
         return filteredSchedules.map { ScheduleResponse.from(it) }
+    }
+    
+    /**
+     * 월별 스케줄 자동 생성
+     * 고정 근무를 기반으로 해당 월의 모든 날짜에 개별 스케줄 생성
+     */
+    fun generateMonthlySchedules(
+        storeId: UUID,
+        year: Int,
+        month: Int,
+        regularShifts: List<com.worktime.domain.model.RegularShift>
+    ): List<ScheduleResponse> {
+        val startDate = java.time.LocalDate.of(year, month, 1)
+        val endDate = startDate.plusMonths(1).minusDays(1)
+        
+        val createdSchedules = mutableListOf<Schedule>()
+        var currentDate = startDate
+        
+        while (!currentDate.isAfter(endDate)) {
+            // 해당 요일의 고정 근무 필터링
+            val shiftsForDay = regularShifts.filter { shift ->
+                shift.active && 
+                shift.dayOfWeek == currentDate.dayOfWeek &&
+                (shift.effectiveFrom == null || !shift.effectiveFrom!!.isAfter(currentDate)) &&
+                (shift.effectiveUntil == null || !shift.effectiveUntil!!.isBefore(currentDate))
+            }
+            
+            for (shift in shiftsForDay) {
+                val worker = shift.worker
+                val timezone = "Asia/Seoul"
+                val zoneId = java.time.ZoneId.of(timezone)
+                
+                // LocalTime + LocalDate → OffsetDateTime 변환
+                val startAtUtc = java.time.ZonedDateTime.of(
+                    currentDate, shift.startTime, zoneId
+                ).toOffsetDateTime().withOffsetSameInstant(java.time.ZoneOffset.UTC)
+                
+                val endAtUtc = java.time.ZonedDateTime.of(
+                    currentDate, shift.endTime, zoneId
+                ).toOffsetDateTime().withOffsetSameInstant(java.time.ZoneOffset.UTC)
+                
+                // 이미 동일 근무자 + 동일 시간에 스케줄이 있는지 확인
+                val existingSchedules = scheduleRepository.findConfirmedSchedulesOverlapping(
+                    worker = worker,
+                    startTime = startAtUtc,
+                    endTime = endAtUtc
+                )
+                
+                if (existingSchedules.isEmpty()) {
+                    val schedule = Schedule(
+                        worker = worker,
+                        startAtUtc = startAtUtc,
+                        endAtUtc = endAtUtc,
+                        timezone = timezone,
+                        status = ScheduleStatus.CONFIRMED  // 바로 확정 상태로 생성
+                    )
+                    createdSchedules.add(scheduleRepository.save(schedule))
+                }
+            }
+            
+            currentDate = currentDate.plusDays(1)
+        }
+        
+        return createdSchedules.map { ScheduleResponse.from(it) }
     }
 }

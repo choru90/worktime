@@ -99,6 +99,18 @@ class Schedule(
         }
         status = ScheduleStatus.CANCELED
     }
+
+    /**
+     * 스케줄 시간을 수정합니다
+     */
+    fun updateTime(startAtUtc: OffsetDateTime, endAtUtc: OffsetDateTime, timezone: String) {
+        require(endAtUtc.isAfter(startAtUtc)) {
+            "종료 시간은 시작 시간보다 이후여야 합니다"
+        }
+        this.startAtUtc = startAtUtc
+        this.endAtUtc = endAtUtc
+        this.timezone = timezone
+    }
     
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

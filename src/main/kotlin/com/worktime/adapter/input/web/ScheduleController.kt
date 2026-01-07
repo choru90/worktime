@@ -3,6 +3,7 @@ package com.worktime.adapter.input.web
 import com.worktime.adapter.input.web.dto.schedule.ScheduleCreateRequest
 import com.worktime.adapter.input.web.dto.schedule.ScheduleListResponse
 import com.worktime.adapter.input.web.dto.schedule.ScheduleResponse
+import com.worktime.adapter.input.web.dto.schedule.ScheduleUpdateRequest
 import com.worktime.application.port.input.ScheduleUseCase
 import com.worktime.domain.model.ScheduleStatus
 import io.swagger.v3.oas.annotations.Operation
@@ -34,6 +35,16 @@ class ScheduleController(
     ): ResponseEntity<ScheduleResponse> {
         val response = scheduleUseCase.createSchedule(request)
         return ResponseEntity.status(HttpStatus.CREATED).body(response)
+    }
+
+    @PatchMapping("/schedules/{scheduleId}")
+    @Operation(summary = "스케줄 시간 수정", description = "스케줄의 시간을 수정합니다")
+    fun updateScheduleTime(
+        @PathVariable scheduleId: UUID,
+        @Valid @RequestBody request: ScheduleUpdateRequest
+    ): ResponseEntity<ScheduleResponse> {
+        val response = scheduleUseCase.updateScheduleTime(scheduleId, request)
+        return ResponseEntity.ok(response)
     }
     
     @PostMapping("/schedules/{scheduleId}/confirm")

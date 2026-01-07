@@ -1,9 +1,11 @@
 package com.worktime.adapter.input.web
 
+import com.worktime.adapter.input.web.dto.schedule.ScheduleListResponse
 import com.worktime.adapter.input.web.dto.store.RegularShiftCreateRequest
 import com.worktime.adapter.input.web.dto.store.RegularShiftResponse
 import com.worktime.adapter.input.web.dto.store.RegularShiftUpdateRequest
 import com.worktime.application.service.RegularShiftService
+import com.worktime.application.service.ScheduleService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -23,7 +25,8 @@ import java.util.*
 @Tag(name = "RegularShift", description = "고정 근무 관리 API")
 @PreAuthorize("hasRole('OWNER')")
 class RegularShiftController(
-    private val regularShiftService: RegularShiftService
+    private val regularShiftService: RegularShiftService,
+    private val scheduleService: ScheduleService
 ) {
     
     @PostMapping("/stores/{storeId}/regular-shifts")
@@ -129,5 +132,23 @@ class RegularShiftController(
     ): ResponseEntity<List<RegularShiftResponse>> {
         val shifts = regularShiftService.getRegularShiftsByWorker(workerId)
         return ResponseEntity.ok(shifts.map { RegularShiftResponse.from(it) })
+    }
+    
+    // ===== 월별 스케줄 생성 =====
+    
+    @PostMapping("/stores/{storeId}/generate-schedules")
+    @Operation(summary = "월별 스케줄 자동 생성", description = "고정 근무를 기반으로 해당 월의 개별 스케줄을 생성합니다")
+    fun generateMonthlySchedules(
+        @PathVariable storeId: UUID,
+        @RequestParam year: Int,
+        @RequestParam month: Int
+    ): ResponseEntity<ScheduleListResponse> {
+        // 해당 영업장의 고정 근무 조회
+        val regularShifts = regularShiftService.getActiveRegularShiftsByStore(storeId)
+        
+        // 월별 스케줄 생성
+        val schedules = scheduleService.generateMonthlySchedules(storeId, year, month, regularShifts)
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(ScheduleListResponse.from(schedules))
     }
 }

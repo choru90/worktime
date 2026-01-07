@@ -5,6 +5,7 @@ import com.worktime.adapter.output.persistence.StoreJpaRepository
 import com.worktime.adapter.output.persistence.WorkerJpaRepository
 import com.worktime.domain.exception.ResourceNotFoundException
 import com.worktime.domain.model.RegularShift
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.DayOfWeek
@@ -20,11 +21,12 @@ import java.util.*
 class RegularShiftService(
     private val regularShiftRepository: RegularShiftJpaRepository,
     private val storeRepository: StoreJpaRepository,
-    private val workerRepository: WorkerJpaRepository
+    private val workerRepository: WorkerJpaRepository,
+    @Lazy private val scheduleService: ScheduleService  // Lazy 주입으로 순환 참조 방지
 ) {
     
     /**
-     * 고정근무 생성
+     * 고정근무 생성 → 자동으로 이번 달 + 다음 달 스케줄 생성
      */
     @Transactional
     fun createRegularShift(
@@ -58,7 +60,31 @@ class RegularShiftService(
             effectiveUntil = effectiveUntil
         )
         
-        return regularShiftRepository.save(regularShift)
+        val savedShift = regularShiftRepository.save(regularShift)
+        
+        // 고정 근무 등록 후 자동으로 이번 달 + 다음 달 스케줄 생성
+        generateSchedulesForShift(savedShift)
+        
+        return savedShift
+    }
+    
+    /**
+     * 특정 고정 근무에 대해 이번 달 + 다음 달 스케줄 자동 생성
+     */
+    private fun generateSchedulesForShift(shift: RegularShift) {
+        val now = LocalDate.now()
+        val thisMonth = now.withDayOfMonth(1)
+        val nextMonth = thisMonth.plusMonths(1)
+        
+        // 이번 달과 다음 달에 대해 스케줄 생성
+        listOf(thisMonth, nextMonth).forEach { monthStart ->
+            scheduleService.generateMonthlySchedules(
+                storeId = shift.store.id,
+                year = monthStart.year,
+                month = monthStart.monthValue,
+                regularShifts = listOf(shift)
+            )
+        }
     }
     
     /**
