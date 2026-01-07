@@ -100,4 +100,18 @@ class WorkerController(
         val response = workerUseCase.generateInviteCode(id)
         return ResponseEntity.ok(response)
     }
+
+    @PostMapping("/{id}/resign")
+    @Operation(
+        summary = "알바생 퇴사 처리",
+        description = "알바생을 퇴사 처리합니다. Worker 상태를 INACTIVE로 변경하고 현재 시급 계약을 종료합니다."
+    )
+    fun resignWorker(
+        @Parameter(description = "근로자 ID") @PathVariable id: UUID,
+        @Parameter(description = "퇴사일 (형식: YYYY-MM-DD)")
+        @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) resignDate: java.time.LocalDate
+    ): ResponseEntity<WorkerResponse> {
+        val response = workerUseCase.resignWorker(id, resignDate)
+        return ResponseEntity.ok(response)
+    }
 }

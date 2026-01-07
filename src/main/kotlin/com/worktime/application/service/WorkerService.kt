@@ -56,6 +56,23 @@ class WorkerService(
         workerRepository.save(worker)
     }
 
+    override fun resignWorker(id: UUID, resignDate: java.time.LocalDate): WorkerResponse {
+        val worker = workerRepository.findById(id)
+            ?: throw ResourceNotFoundException("Worker not found with id: $id")
+        
+        // 현재 활성 시급 계약 종료
+        val currentWageContract = wageContractUseCase.getCurrentWageContract(worker)
+        if (currentWageContract != null) {
+            wageContractUseCase.terminateWageContract(currentWageContract.id, resignDate)
+        }
+        
+        // Worker 상태를 INACTIVE로 변경
+        worker.active = false
+        workerRepository.save(worker)
+        
+        return WorkerResponse.from(worker)
+    }
+
     override fun getWorkerById(id: UUID): WorkerResponse {
         val worker = workerRepository.findById(id)
             ?: throw ResourceNotFoundException("Worker not found with id: $id")
