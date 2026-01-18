@@ -9,6 +9,7 @@ import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.ScheduleRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.BusinessException
+import com.worktime.domain.model.NotificationType
 import com.worktime.domain.exception.InvalidScheduleStateException
 import com.worktime.domain.exception.ResourceNotFoundException
 import com.worktime.domain.exception.ScheduleConflictException
@@ -27,7 +28,8 @@ import java.util.*
 class ScheduleService(
     private val scheduleRepository: ScheduleRepository,
     private val workerRepository: WorkerRepository,
-    private val ownerRepository: OwnerRepository
+    private val ownerRepository: OwnerRepository,
+    private val notificationService: NotificationService
 ) : ScheduleUseCase {
     
     override fun createSchedule(request: ScheduleCreateRequest): ScheduleResponse {
@@ -66,6 +68,20 @@ class ScheduleService(
         )
         
         val savedSchedule = scheduleRepository.save(schedule)
+        
+        // 사장이 알바에게 스케줄을 제안한 경우 알림 생성
+        if (savedSchedule.status == ScheduleStatus.PROPOSED_BY_OWNER) {
+            savedSchedule.worker.userAccount?.let { userAccount ->
+                notificationService.createNotification(
+                    userId = userAccount.id,
+                    type = NotificationType.SCHEDULE_PROPOSED,
+                    title = "새로운 스케줄 제안",
+                    message = "사장님이 새로운 근무 스케줄을 제안했습니다.",
+                    referenceId = savedSchedule.id
+                )
+            }
+        }
+        
         return ScheduleResponse.from(savedSchedule)
     }
 
@@ -111,6 +127,18 @@ class ScheduleService(
         }
         
         val savedSchedule = scheduleRepository.save(schedule)
+        
+        // 알림 생성: 스케줄이 확정되었음을 알림
+        savedSchedule.worker.userAccount?.let { userAccount ->
+            notificationService.createNotification(
+                userId = userAccount.id,
+                type = NotificationType.SCHEDULE_CONFIRMED,
+                title = "스케줄 확정",
+                message = "근무 스케줄이 확정되었습니다.",
+                referenceId = savedSchedule.id
+            )
+        }
+        
         return ScheduleResponse.from(savedSchedule)
     }
     
@@ -125,6 +153,18 @@ class ScheduleService(
         }
         
         val savedSchedule = scheduleRepository.save(schedule)
+        
+        // 알림 생성: 스케줄이 거절되었음을 알림
+        savedSchedule.worker.userAccount?.let { userAccount ->
+            notificationService.createNotification(
+                userId = userAccount.id,
+                type = NotificationType.SCHEDULE_REJECTED,
+                title = "스케줄 거절",
+                message = "근무 스케줄이 거절되었습니다.",
+                referenceId = savedSchedule.id
+            )
+        }
+        
         return ScheduleResponse.from(savedSchedule)
     }
     

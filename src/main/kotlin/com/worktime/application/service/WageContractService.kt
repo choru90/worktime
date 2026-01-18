@@ -59,9 +59,11 @@ class WageContractService(
         val contract = wageContractRepository.findById(contractId)
             ?: throw ResourceNotFoundException("Wage contract not found with id: $contractId")
         
-        // 종료일이 시작일보다 이전일 수 없음
+        // 종료일이 시작일보다 이전이면 계약에 영향을 주지 않음 (아직 시작하지 않은 계약)
+        // 해당 계약은 그대로 유지됨
         if (endDate.isBefore(contract.startDate)) {
-            throw BusinessException("End date cannot be before start date (${contract.startDate})")
+            // 아무 변경도 하지 않고 현재 계약 정보 반환
+            return WageContractResponse.from(contract)
         }
         
         // 이미 종료된 계약은 다시 종료할 수 없음
