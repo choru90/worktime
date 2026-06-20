@@ -17,6 +17,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+        generate_statistics: true
+        session:
+          events:
+            log:
+              LOG_QUERIES_SLOWER_THAN_MS: 1000
     open-in-view: false
   
   flyway:
@@ -38,6 +43,20 @@ server:
 jwt:
   secret: your-256-bit-secret-key-change-this-in-production-must-be-at-least-256-bits-long
   expiration: 86400000  # 24시간 (밀리초)
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 logging:
   level:

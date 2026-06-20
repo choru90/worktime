@@ -45,6 +45,10 @@ dependencies {
     
     // Swagger/OpenAPI
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
+
+    // Monitoring
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
     
     // Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")

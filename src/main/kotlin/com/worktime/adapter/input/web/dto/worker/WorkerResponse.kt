@@ -22,6 +22,11 @@ data class WorkerResponse(
     @Schema(description = "Active status")
     val active: Boolean,
     
+    @Schema(description = "소속 영업장 ID")
+    val storeId: UUID?,
+    
+    @Schema(description = "소속 영업장 이름")
+    val storeName: String?,
     
     @Schema(description = "계정 연결 여부")
     val hasAccount: Boolean,
@@ -42,6 +47,8 @@ data class WorkerResponse(
                 name = worker.name,
                 phoneNumber = worker.phoneNumber,
                 active = worker.active,
+                storeId = worker.store?.id,
+                storeName = worker.store?.name,
                 hasAccount = worker.userAccount != null,
                 userEmail = worker.userAccount?.email,
                 createdAt = worker.createdAt,

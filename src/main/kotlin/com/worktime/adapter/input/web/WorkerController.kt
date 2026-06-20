@@ -80,12 +80,16 @@ class WorkerController(
     @GetMapping
     @Operation(
         summary = "전체 근로자 목록 조회",
-        description = "전체 근로자 목록을 조회합니다. 활성 상태로 필터링할 수 있습니다."
+        description = "전체 근로자 목록을 조회합니다. 활성 상태 및 영업장으로 필터링할 수 있습니다."
     )
     fun getAllWorkers(
-        @Parameter(description = "활성 상태로 필터링") @RequestParam(required = false) active: Boolean?
+        @Parameter(description = "활성 상태로 필터링") @RequestParam(required = false) active: Boolean?,
+        @Parameter(description = "영업장 ID로 필터링") @RequestParam(required = false) storeId: UUID?
     ): ResponseEntity<List<WorkerResponse>> {
-        val response = workerUseCase.getAllWorkers(active)
+        val authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().authentication
+        val userId = UUID.fromString(authentication.name)
+        
+        val response = workerUseCase.getAllWorkers(userId, active, storeId)
         return ResponseEntity.ok(response)
     }
 

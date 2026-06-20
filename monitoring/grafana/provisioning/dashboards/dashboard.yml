@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: worktime
+    orgId: 1
+    folder: Worktime
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/dashboards

@@ -12,6 +12,7 @@ interface WorkerRepository {
     fun findAll(): List<Worker>
     fun findByActive(active: Boolean): List<Worker>
     fun findByOwner(ownerId: UUID): List<Worker>
+    fun findByStoreId(storeId: UUID): List<Worker>
     fun findByPhoneNumber(phoneNumber: String): Worker?
     fun existsByPhoneNumber(phoneNumber: String): Boolean
     fun findByUserAccountId(userId: UUID): Worker?

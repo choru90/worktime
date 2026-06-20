@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(json|yaml|npmrc|gitignore|yml\\)$\")",
+      "Bash(docker compose *)",
+      "Bash(git -C /Users/jeong-gwangcheol/IdeaProjects/familydo branch)",
+      "Bash(git -C /Users/jeong-gwangcheol/IdeaProjects/familydo log --oneline -5)",
+      "Bash(docker exec *)",
+      "Bash(mkdir -p /Users/jeong-gwangcheol/IdeaProjects/familydo/apps)",
+      "Bash(pnpm dlx *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm --filter server add @nestjs/jwt @nestjs/mapped-types bcrypt class-validator class-transformer @prisma/client)",
+      "Bash(pnpm --filter server add -D prisma @types/bcrypt)",
+      "Bash(npm show *)",
+      "Bash(python3 -c \"import sys,json; versions=json.load\\(sys.stdin\\); print\\([v for v in versions if v.startswith\\('5.'\\)][-10:]\\)\")",
+      "Bash(python3 -c \"import sys,json; versions=json.load\\(sys.stdin\\); stable=[v for v in versions if v.startswith\\('5.'\\) and '-' not in v]; print\\(stable[-5:]\\)\")",
+      "Bash(pnpm --filter server add -D prisma@5.22.0 @types/bcrypt)",
+      "Bash(pnpm --filter server add @prisma/client@5.22.0)",
+      "Bash(pnpm prisma *)",
+      "Bash(pnpm build *)",
+      "Bash(ps -p 4189 -o comm=,args=)",
+      "Bash(PORT=3001 node -e ' *)",
+      "Bash(node -e ' *)",
+      "Bash(xargs -I{} sh -c 'ps -p {} -o pid=,comm= 2>/dev/null')",
+      "Read(//private/etc/**)",
+      "Bash(python3 -c \"import socket; print\\(socket.getservbyname\\('hbci'\\)\\)\")",
+      "Bash(xargs ps -o pid=,comm= -p)",
+      "Bash(ps *)",
+      "Bash(git -C /Users/jeong-gwangcheol/IdeaProjects/familydo status)",
+      "Bash(git -C /Users/jeong-gwangcheol/IdeaProjects/familydo diff --stat HEAD)",
+      "Bash(node -e \"const p = require\\('./apps/server/package.json'\\); const c = p.dependencies['@prisma/client']; const pd = p.devDependencies['prisma']; console.log\\('client:', c, 'prisma CLI:', pd\\)\")",
+      "Bash(node -e \"const p = require\\('./apps/server/package.json'\\); console.log\\(JSON.stringify\\(p.dependencies, null, 2\\)\\); console.log\\('bcrypt:', p.dependencies.bcrypt\\)\")",
+      "Bash(python3 -c \"import sys,json; p=json.load\\(sys.stdin\\); print\\('version:', p.get\\('version'\\)\\)\")",
+      "Bash(xargs -I{} python3 -c \"import sys,json; p=json.load\\(open\\('{}'\\)\\);print\\('{}:', p.get\\('name'\\), p.get\\('version'\\)\\)\")",
+      "Bash(python3 -m json.tool)"
+    ]
+  }
+}

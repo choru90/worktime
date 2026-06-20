@@ -2,6 +2,7 @@ package com.worktime.application.service
 
 import com.worktime.adapter.input.web.dto.worker.WorkerCreateRequest
 import com.worktime.adapter.input.web.dto.worker.WorkerUpdateRequest
+import com.worktime.adapter.output.persistence.StoreJpaRepository
 import com.worktime.application.port.input.WageContractUseCase
 import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.WorkerRepository
@@ -27,6 +28,7 @@ class WorkerServiceTest {
     private lateinit var workerRepository: WorkerRepository
     private lateinit var wageContractUseCase: WageContractUseCase
     private lateinit var ownerRepository: OwnerRepository
+    private lateinit var storeRepository: StoreJpaRepository
     private lateinit var service: WorkerService
     
     private lateinit var testWorker: Worker
@@ -47,7 +49,8 @@ class WorkerServiceTest {
         workerRepository = mock(WorkerRepository::class.java)
         wageContractUseCase = mock(WageContractUseCase::class.java)
         ownerRepository = mock(OwnerRepository::class.java)
-        service = WorkerService(workerRepository, wageContractUseCase, ownerRepository)
+        storeRepository = mock(StoreJpaRepository::class.java)
+        service = WorkerService(workerRepository, wageContractUseCase, ownerRepository, storeRepository)
         
         testOwner = Owner(
             id = ownerId,
@@ -70,7 +73,7 @@ class WorkerServiceTest {
             phoneNumber = "01098765432"
         )
         
-        whenever(ownerRepository.findById(ownerId)).thenReturn(testOwner)
+        whenever(ownerRepository.findByUserId(ownerId)).thenReturn(testOwner)
         whenever(workerRepository.save(any())).thenAnswer { it.arguments[0] }
         
         // When
@@ -151,10 +154,11 @@ class WorkerServiceTest {
     fun `getAllWorkers - should return all active workers when filter is true`() {
         // Given
         val activeWorkers = listOf(testWorker)
-        whenever(workerRepository.findByActive(true)).thenReturn(activeWorkers)
+        whenever(ownerRepository.findByUserId(userId)).thenReturn(testOwner)
+        whenever(workerRepository.findByOwner(ownerId)).thenReturn(activeWorkers)
         
         // When
-        val result = service.getAllWorkers(active = true)
+        val result = service.getAllWorkers(userId = userId, active = true)
         
         // Then
         assertEquals(1, result.size)

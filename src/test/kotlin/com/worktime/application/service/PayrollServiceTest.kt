@@ -2,6 +2,7 @@ package com.worktime.application.service
 
 import com.worktime.adapter.input.web.dto.wage.WageInfoResponse
 import com.worktime.application.port.input.WageContractUseCase
+import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.WorkLogRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.BusinessException
@@ -28,6 +29,7 @@ class PayrollServiceTest {
     
     private lateinit var workLogRepository: WorkLogRepository
     private lateinit var workerRepository: WorkerRepository
+    private lateinit var ownerRepository: OwnerRepository
     private lateinit var wageContractUseCase: WageContractUseCase
     private lateinit var service: PayrollService
     
@@ -38,8 +40,9 @@ class PayrollServiceTest {
     fun setUp() {
         workLogRepository = mock(WorkLogRepository::class.java)
         workerRepository = mock(WorkerRepository::class.java)
+        ownerRepository = mock(OwnerRepository::class.java)
         wageContractUseCase = mock(WageContractUseCase::class.java)
-        service = PayrollService(workLogRepository, workerRepository, wageContractUseCase)
+        service = PayrollService(workLogRepository, workerRepository, ownerRepository, wageContractUseCase)
         
         testWorker = Worker(
             id = workerId,

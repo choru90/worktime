@@ -1,0 +1,270 @@
+{
+  "title": "Worktime Application",
+  "uid": "worktime-main",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"worktime\"}[1m])) by (uri, method, status)",
+          "legendFormat": "{{method}} {{uri}} [{{status}}]"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 2,
+      "title": "HTTP Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=\"worktime\"}[1m])) by (le, uri))",
+          "legendFormat": "p50 {{uri}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"worktime\"}[1m])) by (le, uri))",
+          "legendFormat": "p95 {{uri}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"worktime\"}[1m])) by (le, uri))",
+          "legendFormat": "p99 {{uri}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 3,
+      "title": "HTTP Error Rate (4xx / 5xx)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"worktime\",status=~\"4..\"}[1m]))",
+          "legendFormat": "4xx"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"worktime\",status=~\"5..\"}[1m]))",
+          "legendFormat": "5xx"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 },
+          "color": { "mode": "fixed" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "title": "Slow Queries (>1s) — Hibernate Max Execution Time",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "hibernate_query_execution_max_seconds{application=\"worktime\"}",
+          "legendFormat": "Max query execution (s)"
+        },
+        {
+          "expr": "rate(hibernate_query_executions_total{application=\"worktime\"}[1m])",
+          "legendFormat": "Query rate (exec/s)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Query rate (exec/s)" },
+            "properties": [{ "id": "unit", "value": "short" }, { "id": "custom.axisPlacement", "value": "right" }]
+          }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 5,
+      "title": "HikariCP Connection Pool",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{application=\"worktime\"}",
+          "legendFormat": "Active"
+        },
+        {
+          "expr": "hikaricp_connections_idle{application=\"worktime\"}",
+          "legendFormat": "Idle"
+        },
+        {
+          "expr": "hikaricp_connections_pending{application=\"worktime\"}",
+          "legendFormat": "Pending"
+        },
+        {
+          "expr": "hikaricp_connections_max{application=\"worktime\"}",
+          "legendFormat": "Max"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 6,
+      "title": "HikariCP Connection Acquire Time (p95)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(hikaricp_connections_acquire_seconds_bucket{application=\"worktime\"}[1m])) by (le, pool))",
+          "legendFormat": "p95 acquire {{pool}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(hikaricp_connections_acquire_seconds_bucket{application=\"worktime\"}[1m])) by (le, pool))",
+          "legendFormat": "p99 acquire {{pool}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 7,
+      "title": "JVM Heap Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{application=\"worktime\", area=\"heap\"}",
+          "legendFormat": "Used ({{id}})"
+        },
+        {
+          "expr": "jvm_memory_committed_bytes{application=\"worktime\", area=\"heap\"}",
+          "legendFormat": "Committed ({{id}})"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{application=\"worktime\", area=\"heap\"}",
+          "legendFormat": "Max ({{id}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 8,
+      "title": "JVM GC Pause Time",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "rate(jvm_gc_pause_seconds_sum{application=\"worktime\"}[1m])",
+          "legendFormat": "GC pause rate ({{action}}, {{cause}})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 9,
+      "title": "JVM Threads",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 32, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "jvm_threads_live_threads{application=\"worktime\"}",
+          "legendFormat": "Live"
+        },
+        {
+          "expr": "jvm_threads_daemon_threads{application=\"worktime\"}",
+          "legendFormat": "Daemon"
+        },
+        {
+          "expr": "jvm_threads_peak_threads{application=\"worktime\"}",
+          "legendFormat": "Peak"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Hibernate Sessions",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 32, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "rate(hibernate_sessions_opened_total{application=\"worktime\"}[1m])",
+          "legendFormat": "Opened/s"
+        },
+        {
+          "expr": "rate(hibernate_sessions_closed_total{application=\"worktime\"}[1m])",
+          "legendFormat": "Closed/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "lineWidth": 2 } }
+      }
+    },
+    {
+      "id": 11,
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 32, "w": 8, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "process_cpu_usage{application=\"worktime\"}",
+          "legendFormat": "Process CPU"
+        },
+        {
+          "expr": "system_cpu_usage{application=\"worktime\"}",
+          "legendFormat": "System CPU"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "lineWidth": 2 } }
+      }
+    }
+  ]
+}

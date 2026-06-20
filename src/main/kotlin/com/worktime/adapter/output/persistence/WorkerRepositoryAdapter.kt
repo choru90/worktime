@@ -33,6 +33,10 @@ class WorkerRepositoryAdapter(
         return jpaRepository.findByOwnerId(ownerId)
     }
 
+    override fun findByStoreId(storeId: UUID): List<Worker> {
+        return jpaRepository.findByStoreId(storeId)
+    }
+
     override fun findByPhoneNumber(phoneNumber: String): Worker? {
         return jpaRepository.findByPhoneNumber(phoneNumber)
     }

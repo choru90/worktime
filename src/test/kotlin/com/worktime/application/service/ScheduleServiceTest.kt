@@ -2,6 +2,7 @@ package com.worktime.application.service
 
 import com.worktime.adapter.input.web.dto.schedule.ScheduleCreateRequest
 import com.worktime.adapter.input.web.dto.schedule.ScheduleRequestType
+import com.worktime.application.port.output.OwnerRepository
 import com.worktime.application.port.output.ScheduleRepository
 import com.worktime.application.port.output.WorkerRepository
 import com.worktime.domain.exception.InvalidScheduleStateException
@@ -28,6 +29,8 @@ class ScheduleServiceTest {
     
     private lateinit var scheduleRepository: ScheduleRepository
     private lateinit var workerRepository: WorkerRepository
+    private lateinit var ownerRepository: OwnerRepository
+    private lateinit var notificationService: NotificationService
     private lateinit var service: ScheduleService
     
     private lateinit var testWorker: Worker
@@ -37,7 +40,9 @@ class ScheduleServiceTest {
     fun setUp() {
         scheduleRepository = mock(ScheduleRepository::class.java)
         workerRepository = mock(WorkerRepository::class.java)
-        service = ScheduleService(scheduleRepository, workerRepository)
+        ownerRepository = mock(OwnerRepository::class.java)
+        notificationService = mock(NotificationService::class.java)
+        service = ScheduleService(scheduleRepository, workerRepository, ownerRepository, notificationService)
         
         testWorker = Worker(
             id = workerId,

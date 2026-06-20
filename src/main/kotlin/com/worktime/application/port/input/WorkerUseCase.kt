@@ -14,6 +14,6 @@ interface WorkerUseCase {
     fun resignWorker(id: UUID, resignDate: LocalDate): WorkerResponse
     fun getWorkerById(id: UUID): WorkerResponse
     fun getWorkerDetail(id: UUID): WorkerDetailResponse
-    fun getAllWorkers(active: Boolean?): List<WorkerResponse>
+    fun getAllWorkers(userId: UUID, active: Boolean?, storeId: UUID? = null): List<WorkerResponse>
     fun generateInviteCode(workerId: UUID): InviteCodeResponse
 }

@@ -1,6 +1,7 @@
 package com.worktime.application.service
 
 import com.worktime.adapter.input.web.dto.worker.*
+import com.worktime.adapter.output.persistence.StoreJpaRepository
 import com.worktime.application.port.input.WageContractUseCase
 import com.worktime.application.port.input.WorkerUseCase
 import com.worktime.application.port.output.OwnerRepository
@@ -19,17 +20,24 @@ import java.util.*
 class WorkerService(
     private val workerRepository: WorkerRepository,
     private val wageContractUseCase: WageContractUseCase,
-    private val ownerRepository: OwnerRepository
+    private val ownerRepository: OwnerRepository,
+    private val storeRepository: StoreJpaRepository
 ) : WorkerUseCase {
 
     override fun createWorker(userId: UUID, request: WorkerCreateRequest): WorkerResponse {
         val owner = ownerRepository.findByUserId(userId)
             ?: throw ResourceNotFoundException("Owner not found for user id: $userId")
 
+        val store = request.storeId?.let { storeId ->
+            storeRepository.findById(storeId)
+                .orElseThrow { ResourceNotFoundException("Store not found with id: $storeId") }
+        }
+
         val worker = Worker(
             name = request.name,
             phoneNumber = request.phoneNumber,
-            owner = owner
+            owner = owner,
+            store = store
         )
         
         val savedWorker = workerRepository.save(worker)
@@ -42,6 +50,10 @@ class WorkerService(
         
         worker.name = request.name
         worker.phoneNumber = request.phoneNumber
+        worker.store = request.storeId?.let { storeId ->
+            storeRepository.findById(storeId)
+                .orElseThrow { ResourceNotFoundException("Store not found with id: $storeId") }
+        }
         
         val updatedWorker = workerRepository.save(worker)
         return WorkerResponse.from(updatedWorker)
@@ -94,14 +106,23 @@ class WorkerService(
         )
     }
 
-    override fun getAllWorkers(active: Boolean?): List<WorkerResponse> {
-        val workers = if (active != null) {
-            workerRepository.findByActive(active)
-        } else {
-            workerRepository.findAll()
+    override fun getAllWorkers(userId: UUID, active: Boolean?, storeId: UUID?): List<WorkerResponse> {
+        val owner = ownerRepository.findByUserId(userId)
+            ?: throw ResourceNotFoundException("Owner not found for user id: $userId")
+
+        val workerList = when {
+            storeId != null -> workerRepository.findByStoreId(storeId)
+            else -> workerRepository.findByOwner(owner.id)
         }
         
-        return workers.map { WorkerResponse.from(it) }
+        val filteredWorkerList = when {
+            storeId != null && active != null -> workerList.filter { it.active == active && it.owner.id == owner.id }
+            storeId != null -> workerList.filter { it.owner.id == owner.id }
+            active != null -> workerList.filter { it.active == active }
+            else -> workerList
+        }
+        
+        return filteredWorkerList.map { WorkerResponse.from(it) }
     }
     
     override fun generateInviteCode(workerId: UUID): InviteCodeResponse {

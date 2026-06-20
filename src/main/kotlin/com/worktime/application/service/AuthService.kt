@@ -150,7 +150,7 @@ class AuthService(
         // 사용자 조회
         val user = userRepository.findByEmail(request.email)
             ?: throw InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다")
-        
+        println(user.password)
         // 비밀번호 검증
         if (!passwordEncoder.matches(request.password, user.password)) {
             throw InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다")
