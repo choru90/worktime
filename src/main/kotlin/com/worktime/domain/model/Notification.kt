@@ -19,7 +19,7 @@ import java.util.*
 )
 class Notification(
     @Id
-    @Column(columnDefinition = "uuid")
+    @Column(columnDefinition = "BINARY(16)")
     val id: UUID = UUID.randomUUID(),
     
     /**
@@ -52,7 +52,7 @@ class Notification(
      * 관련 엔티티의 ID (예: Schedule ID)
      * 알림 클릭 시 해당 페이지로 이동하기 위해 사용
      */
-    @Column(name = "reference_id", columnDefinition = "uuid")
+    @Column(name = "reference_id", columnDefinition = "BINARY(16)")
     val referenceId: UUID? = null,
     
     /**
