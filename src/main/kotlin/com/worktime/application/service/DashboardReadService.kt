@@ -348,7 +348,7 @@ class DashboardReadService(
             target = ActionTarget(
                 targetType = ActionTargetType.SCHEDULE,
                 targetId = schedule.id.toString(),
-                deepLink = "/owner/schedules/${schedule.id}"
+                deepLink = "/schedule"
             ),
             meta = ActionMeta(
                 workerId = schedule.worker.id.toString(),
@@ -370,7 +370,7 @@ class DashboardReadService(
             target = ActionTarget(
                 targetType = ActionTargetType.ATTENDANCE,
                 targetId = workLog.id.toString(),
-                deepLink = "/owner/attendance?date=${workLog.clockInAt.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()}"
+                deepLink = "/worklogs?date=${workLog.clockInAt.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()}"
             ),
             meta = ActionMeta(
                 workerId = workLog.worker.id.toString(),
@@ -391,7 +391,7 @@ class DashboardReadService(
             target = ActionTarget(
                 targetType = ActionTargetType.ATTENDANCE,
                 targetId = schedule.id.toString(),
-                deepLink = "/owner/attendance?date=${schedule.startAtUtc.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()}"
+                deepLink = "/worklogs?date=${schedule.startAtUtc.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()}"
             ),
             meta = ActionMeta(
                 workerId = schedule.worker.id.toString(),
