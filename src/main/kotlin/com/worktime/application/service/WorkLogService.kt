@@ -148,7 +148,7 @@ class WorkLogService(
         status: WorkLogStatus?
     ): List<WorkLogResponse> {
         // Filter by workerId if provided
-        val workLogs = when {
+        val workLogList = when {
             workerId != null -> {
                 val worker = workerRepository.findById(workerId)
                     ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
@@ -165,14 +165,51 @@ class WorkLogService(
             else -> emptyList()
         }
         
-        // Filter by status if provided
-        val filteredLogs = if (status != null) {
-            workLogs.filter { it.status == status }
+        val syntheticNoShowLogList = if (from != null && to != null) {
+            val scheduleList = if (workerId != null) {
+                val worker = workerRepository.findById(workerId)
+                if (worker != null) {
+                    scheduleRepository.findByWorkerAndTimeRange(worker, from, to)
+                } else {
+                    emptyList()
+                }
+            } else {
+                scheduleRepository.findByTimeRange(from, to)
+            }
+            
+            val ongoingOrCompletedScheduleIdList = workLogList.mapNotNull { it.schedule?.id }.toSet()
+            val currentOffsetDateTime = OffsetDateTime.now()
+            
+            scheduleList
+                .filter { it.status !in listOf(ScheduleStatus.CANCELED, ScheduleStatus.REJECTED) && it.startAtUtc.isBefore(currentOffsetDateTime) }
+                .filter { it.id !in ongoingOrCompletedScheduleIdList }
+                .map { schedule ->
+                    WorkLogResponse(
+                        id = schedule.id,
+                        workerId = schedule.worker.id,
+                        workerName = schedule.worker.name,
+                        scheduleId = schedule.id,
+                        clockInAt = schedule.startAtUtc,
+                        clockOutAt = null,
+                        status = WorkLogStatus.NO_SHOW,
+                        durationMinutes = null,
+                        createdAt = schedule.createdAt.toString(),
+                        updatedAt = schedule.updatedAt.toString()
+                    )
+                }
         } else {
-            workLogs
+            emptyList()
+        }
+
+        val allWorkLogResponseList = workLogList.map { WorkLogResponse.from(it) } + syntheticNoShowLogList
+        
+        val filteredLogList = if (status != null) {
+            allWorkLogResponseList.filter { it.status == status }
+        } else {
+            allWorkLogResponseList
         }
         
-        return filteredLogs.map { WorkLogResponse.from(it) }
+        return filteredLogList.sortedByDescending { it.clockInAt }
     }
     
     override fun confirmWorkLog(workLogId: UUID): WorkLogResponse {

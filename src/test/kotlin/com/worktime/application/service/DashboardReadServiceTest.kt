@@ -1,6 +1,5 @@
 package com.worktime.application.service
 
-import com.worktime.adapter.input.web.dto.dashboard.ActionSeverity
 import com.worktime.domain.model.DashboardActionType
 import com.worktime.application.port.output.ScheduleRepository
 import com.worktime.application.port.output.WageContractRepository
@@ -156,8 +155,8 @@ class DashboardReadServiceTest {
     }
     
     @Test
-    @DisplayName("Action Count는 미출근 + 미퇴근 + 승인대기 합계여야 함")
-    fun summary_actionCount_shouldSumUpIssues() {
+    @DisplayName("Action Count는 승인대기 건수와 일치해야 함")
+    fun summary_actionCount_shouldReturnOnlyPendingApprovals() {
         // Given
         // 오늘 스케줄 3, 출근 1 (미출근 2)
         whenever(scheduleRepository.countByOwnerAndTimeRangeExcludingCanceledAndRejected(any(), any(), any()))
@@ -181,8 +180,8 @@ class DashboardReadServiceTest {
         val result = dashboardReadService.getDashboardSummary(ownerId, targetDate)
 
         // Then
-        // 미출근 2 + 미퇴근 1 + 승인대기 5 = 8
-        assertEquals(8, result.actionNeededCount)
+        // 승인대기 5 = 5 (미출근, 미퇴근 제외)
+        assertEquals(5, result.actionNeededCount)
     }
 
     @Test
@@ -218,47 +217,11 @@ class DashboardReadServiceTest {
     }
 
     @Test
-    @DisplayName("Action Center: 퇴근 미체크 조회 확인")
-    fun actions_missingCheckout_shouldReturnUrgentAction() {
-        // Given
-        // Ongoing worklog, schedule ended 1 hour ago
-        val past = OffsetDateTime.now().minusHours(5)
-        val schedule = Schedule(
-            worker = worker,
-            startAtUtc = past,
-            endAtUtc = past.plusHours(4), // Ended 1 hour ago
-            timezone = "Asia/Seoul"
-        )
-        val workLog = WorkLog(
-            id = UUID.randomUUID(),
-            worker = worker,
-            schedule = schedule,
-            clockInAt = past,
-            status = WorkLogStatus.ONGOING
-        )
-
-        whenever(scheduleRepository.findByOwnerAndStatusIn(eq(ownerId), any())).thenReturn(emptyList())
-        whenever(workLogRepository.findOngoingWorkLogsByOwner(ownerId)).thenReturn(listOf(workLog))
-        whenever(scheduleRepository.findByOwnerAndTimeRange(eq(ownerId), any(), any())).thenReturn(emptyList())
-
-        // When
-        val result = dashboardReadService.getDashboardActions(ownerId, null, 20, null)
-
-        // Then
-        assertEquals(1, result.items.size)
-        val item = result.items[0]
-        assertEquals(DashboardActionType.MISSING_CHECKOUT, item.type)
-        assertEquals(30, item.priority) // Urgent
-        assertEquals("퇴근 미체크", item.title)
-    }
-
-    @Test
-    @DisplayName("Action Center: 우선순위 정렬 확인")
-    fun actions_shouldSortByPriority() {
-        // Given: 1 pending approval (10), 1 missing checkout (30)
+    @DisplayName("Action Center: 우선순위 및 시간 정렬 확인")
+    fun actions_shouldSortByPriorityAndCreatedAt() {
+        // Given: 2 pending approvals with different creation times
         
-        // 1. Pending
-        val pendingSchedule = Schedule(
+        val pendingSchedule1 = Schedule(
             id = UUID.randomUUID(),
             worker = worker,
             startAtUtc = OffsetDateTime.now().plusDays(1),
@@ -266,39 +229,32 @@ class DashboardReadServiceTest {
             timezone = "Asia/Seoul",
             status = ScheduleStatus.REQUESTED_BY_WORKER
         )
-        whenever(scheduleRepository.findByOwnerAndStatusIn(eq(ownerId), any()))
-            .thenReturn(listOf(pendingSchedule))
-            
-        // 2. Missing Checkout
-        val past = OffsetDateTime.now().minusHours(5)
-        val pastSchedule = Schedule(
-            worker = worker,
-            startAtUtc = past,
-            endAtUtc = past.plusHours(4),
-            timezone = "Asia/Seoul"
-        )
-        val ongoingLog = WorkLog(
-            worker = worker,
-            schedule = pastSchedule,
-            clockInAt = past,
-            status = WorkLogStatus.ONGOING
-        )
-        whenever(workLogRepository.findOngoingWorkLogsByOwner(ownerId)).thenReturn(listOf(ongoingLog))
+        org.springframework.test.util.ReflectionTestUtils.setField(pendingSchedule1, "createdAt", java.time.Instant.now().minusSeconds(3600)) // Recent
         
-        // No missing checkins
-        whenever(scheduleRepository.findByOwnerAndTimeRange(eq(ownerId), any(), any())).thenReturn(emptyList())
+        val pendingSchedule2 = Schedule(
+            id = UUID.randomUUID(),
+            worker = worker,
+            startAtUtc = OffsetDateTime.now().plusDays(2),
+            endAtUtc = OffsetDateTime.now().plusDays(2).plusHours(4),
+            timezone = "Asia/Seoul",
+            status = ScheduleStatus.REQUESTED_BY_WORKER
+        )
+        org.springframework.test.util.ReflectionTestUtils.setField(pendingSchedule2, "createdAt", java.time.Instant.now().minusSeconds(18000)) // Older
+        
+        whenever(scheduleRepository.findByOwnerAndStatusIn(eq(ownerId), any()))
+            .thenReturn(listOf(pendingSchedule1, pendingSchedule2))
 
         // When
         val result = dashboardReadService.getDashboardActions(ownerId, null, 20, null)
 
         // Then
         assertEquals(2, result.items.size)
-        // Expected: Missing Checkout (30) -> Pending Approval (10)
-        assertEquals(DashboardActionType.MISSING_CHECKOUT, result.items[0].type)
-        assertEquals(30, result.items[0].priority)
+        // Expected: Older schedule (pendingSchedule2) should come first because createdAt is ascending
+        assertEquals(DashboardActionType.PENDING_SCHEDULE_APPROVAL, result.items[0].type)
+        assertEquals(pendingSchedule2.id.toString(), result.items[0].target.targetId)
         
         assertEquals(DashboardActionType.PENDING_SCHEDULE_APPROVAL, result.items[1].type)
-        assertEquals(10, result.items[1].priority)
+        assertEquals(pendingSchedule1.id.toString(), result.items[1].target.targetId)
     }
 
     // --- Attendance API Tests ---

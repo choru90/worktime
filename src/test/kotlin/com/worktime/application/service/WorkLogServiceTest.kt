@@ -185,4 +185,94 @@ class WorkLogServiceTest {
         
         assertTrue(exception.message!!.contains("after"))
     }
+    
+    @Test
+    fun `getAllWorkLogs - should include synthetic NO_SHOW when schedule confirmed but no work log`() {
+        // Given
+        val fromTime = OffsetDateTime.of(2025, 1, 15, 0, 0, 0, 0, ZoneOffset.UTC)
+        val toTime = OffsetDateTime.of(2025, 1, 15, 23, 59, 59, 0, ZoneOffset.UTC)
+        
+        val schedule = com.worktime.domain.model.Schedule(
+            worker = testWorker,
+            startAtUtc = OffsetDateTime.of(2025, 1, 15, 9, 0, 0, 0, ZoneOffset.UTC),
+            endAtUtc = OffsetDateTime.of(2025, 1, 15, 18, 0, 0, 0, ZoneOffset.UTC),
+            timezone = "Asia/Seoul",
+            status = com.worktime.domain.model.ScheduleStatus.CONFIRMED
+        )
+        
+        whenever(workLogRepository.findByTimeRange(fromTime, toTime)).thenReturn(emptyList())
+        whenever(scheduleRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(schedule))
+        
+        // When
+        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null)
+        
+        // Then
+        assertEquals(1, resultList.size)
+        val result = resultList.first()
+        assertEquals(WorkLogStatus.NO_SHOW, result.status)
+        assertEquals(testWorker.id, result.workerId)
+        assertEquals(schedule.id, result.scheduleId)
+        assertEquals(schedule.startAtUtc, result.clockInAt)
+    }
+
+    @Test
+    fun `getAllWorkLogs - should include synthetic NO_SHOW when schedule is pending approval`() {
+        // Given
+        val fromTime = OffsetDateTime.of(2025, 1, 15, 0, 0, 0, 0, ZoneOffset.UTC)
+        val toTime = OffsetDateTime.of(2025, 1, 15, 23, 59, 59, 0, ZoneOffset.UTC)
+        
+        val schedule = com.worktime.domain.model.Schedule(
+            worker = testWorker,
+            startAtUtc = OffsetDateTime.of(2025, 1, 15, 9, 0, 0, 0, ZoneOffset.UTC),
+            endAtUtc = OffsetDateTime.of(2025, 1, 15, 18, 0, 0, 0, ZoneOffset.UTC),
+            timezone = "Asia/Seoul",
+            status = com.worktime.domain.model.ScheduleStatus.REQUESTED_BY_WORKER
+        )
+        
+        whenever(workLogRepository.findByTimeRange(fromTime, toTime)).thenReturn(emptyList())
+        whenever(scheduleRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(schedule))
+        
+        // When
+        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null)
+        
+        // Then
+        assertEquals(1, resultList.size)
+        val result = resultList.first()
+        assertEquals(WorkLogStatus.NO_SHOW, result.status)
+    }
+
+    @Test
+    fun `getAllWorkLogs - should return only actual work logs when schedule is matched`() {
+        // Given
+        val fromTime = OffsetDateTime.of(2025, 1, 15, 0, 0, 0, 0, ZoneOffset.UTC)
+        val toTime = OffsetDateTime.of(2025, 1, 15, 23, 59, 59, 0, ZoneOffset.UTC)
+        
+        val schedule = com.worktime.domain.model.Schedule(
+            worker = testWorker,
+            startAtUtc = OffsetDateTime.of(2025, 1, 15, 9, 0, 0, 0, ZoneOffset.UTC),
+            endAtUtc = OffsetDateTime.of(2025, 1, 15, 18, 0, 0, 0, ZoneOffset.UTC),
+            timezone = "Asia/Seoul",
+            status = com.worktime.domain.model.ScheduleStatus.CONFIRMED
+        )
+        
+        val workLog = WorkLog(
+            worker = testWorker,
+            schedule = schedule,
+            clockInAt = OffsetDateTime.of(2025, 1, 15, 8, 55, 0, 0, ZoneOffset.UTC),
+            clockOutAt = OffsetDateTime.of(2025, 1, 15, 18, 5, 0, 0, ZoneOffset.UTC),
+            status = WorkLogStatus.COMPLETED
+        )
+        
+        whenever(workLogRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(workLog))
+        whenever(scheduleRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(schedule))
+        
+        // When
+        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null)
+        
+        // Then
+        assertEquals(1, resultList.size)
+        val result = resultList.first()
+        assertEquals(WorkLogStatus.COMPLETED, result.status)
+        assertEquals(workLog.id, result.id)
+    }
 }

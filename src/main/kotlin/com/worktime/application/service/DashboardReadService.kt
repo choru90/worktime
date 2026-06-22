@@ -39,7 +39,7 @@ class DashboardReadService(
         val monthKpi = calculateMonthKpi(ownerId, monthRange)
         
         // 3. Action needed count
-        val actionNeededCount = calculateActionNeededCount(ownerId, todayKpi)
+        val actionNeededCount = calculateActionNeededCount(ownerId)
         
         return DashboardSummaryResponse(
             date = date.toString(),
@@ -140,10 +140,6 @@ class DashboardReadService(
         types: List<DashboardActionType>?
     ): DashboardActionListResponse {
         val targetDate = date ?: LocalDate.now()
-        val zoneId = java.time.ZoneId.of("Asia/Seoul")
-        
-        val startOfDay = targetDate.atStartOfDay(zoneId).toOffsetDateTime()
-        val endOfDay = targetDate.plusDays(1).atStartOfDay(zoneId).toOffsetDateTime()
 
         val allActions = mutableListOf<ActionItem>()
 
@@ -159,47 +155,7 @@ class DashboardReadService(
             allActions.addAll(pendingSchedules.map { createPendingApprovalAction(it) })
         }
 
-        // 2. MISSING_CHECKOUT
-        if (shouldInclude(types, DashboardActionType.MISSING_CHECKOUT)) {
-            val ongoingLogs = workLogRepository.findOngoingWorkLogsByOwner(ownerId)
-            
-            ongoingLogs.forEach { log ->
-                 val schedule = log.schedule
-                 val isMissingCheckout = if (schedule != null) {
-                     schedule.endAtUtc.isBefore(OffsetDateTime.now())
-                 } else {
-                     log.clockInAt.plusHours(12).isBefore(OffsetDateTime.now())
-                 }
-                 
-                 val startedBeforeToday = log.clockInAt.isBefore(startOfDay)
-                 
-                 if (isMissingCheckout || startedBeforeToday) {
-                     allActions.add(createMissingCheckoutAction(log))
-                 }
-            }
-        }
 
-        // 3. MISSING_CHECKIN
-        if (shouldInclude(types, DashboardActionType.MISSING_CHECKIN)) {
-            val todaySchedules = scheduleRepository.findByOwnerAndTimeRange(ownerId, startOfDay, endOfDay)
-            
-            if (todaySchedules.isNotEmpty()) {
-                val scheduleIds = todaySchedules.map { it.id }
-                val relatedWorkLogs = workLogRepository.findByScheduleIds(scheduleIds)
-                val workLogMap = relatedWorkLogs.groupBy { it.schedule?.id }
-    
-                val now = OffsetDateTime.now()
-                
-                todaySchedules.forEach { schedule ->
-                    val logs = workLogMap[schedule.id] ?: emptyList()
-                    val hasCheckIn = logs.isNotEmpty()
-                    
-                    if (!hasCheckIn && schedule.startAtUtc.isBefore(now)) {
-                        allActions.add(createMissingCheckinAction(schedule))
-                    }
-                }
-            }
-        }
 
         val finalSorted = allActions.sortedWith(
             Comparator { o1, o2 ->
@@ -231,12 +187,13 @@ class DashboardReadService(
         // 1. Date Range & Fetch Schedules
         val dateRange = DashboardDateRange.todayRange(date)
         
-        // Active Schedules: CONFIRMED, IN_PROGRESS, COMPLETED
+        // Active Schedules: Include pending approvals to match TodayKpi logic
         val allSchedules = scheduleRepository.findByOwnerAndStatusIn(
             ownerId,
             listOf(
-                com.worktime.domain.model.ScheduleStatus.CONFIRMED,
-                com.worktime.domain.model.ScheduleStatus.CONFIRMED // Assuming CONFIRMED covers active
+                com.worktime.domain.model.ScheduleStatus.REQUESTED_BY_WORKER,
+                com.worktime.domain.model.ScheduleStatus.PROPOSED_BY_OWNER,
+                com.worktime.domain.model.ScheduleStatus.CONFIRMED
             )
         )
         
@@ -314,7 +271,7 @@ class DashboardReadService(
         )
     }
 
-    private fun calculateActionNeededCount(ownerId: UUID, todayKpi: TodayKpiDto): Int {
+    private fun calculateActionNeededCount(ownerId: UUID): Int {
         // 1. Pending Schedules
         val pendingSchedules = scheduleRepository.findByOwnerAndStatusIn(
             ownerId, 
@@ -324,13 +281,7 @@ class DashboardReadService(
             )
         )
         
-        val pendingCount = pendingSchedules.size
-        
-        // 2. Today's issues
-        val missingCheckIn = todayKpi.notCheckedInCount
-        val missingCheckOut = todayKpi.notCheckedOutCount
-        
-        return pendingCount + missingCheckIn + missingCheckOut
+        return pendingSchedules.size
     }
 
     private fun shouldInclude(types: List<DashboardActionType>?, type: DashboardActionType): Boolean {
@@ -359,48 +310,7 @@ class DashboardReadService(
         )
     }
 
-    private fun createMissingCheckoutAction(workLog: WorkLog): ActionItem {
-        return ActionItem(
-            id = "action:missing-checkout:worklog:${workLog.id}",
-            type = DashboardActionType.MISSING_CHECKOUT,
-            priority = 30,
-            title = "퇴근 미체크",
-            message = "${workLog.worker.name} 퇴근 확인 필요",
-            createdAt = workLog.createdAt.atOffset(java.time.ZoneOffset.UTC),
-            target = ActionTarget(
-                targetType = ActionTargetType.ATTENDANCE,
-                targetId = workLog.id.toString(),
-                deepLink = "/worklogs?date=${workLog.clockInAt.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()}"
-            ),
-            meta = ActionMeta(
-                workerId = workLog.worker.id.toString(),
-                workerName = workLog.worker.name,
-                checkedInAt = workLog.clockInAt
-            )
-        )
-    }
 
-    private fun createMissingCheckinAction(schedule: Schedule): ActionItem {
-        return ActionItem(
-            id = "action:missing-checkin:schedule:${schedule.id}",
-            type = DashboardActionType.MISSING_CHECKIN,
-            priority = 20,
-            title = "출근 미체크",
-            message = "${schedule.worker.name} 출근 확인 필요",
-            createdAt = schedule.startAtUtc,
-            target = ActionTarget(
-                targetType = ActionTargetType.ATTENDANCE,
-                targetId = schedule.id.toString(),
-                deepLink = "/worklogs?date=${schedule.startAtUtc.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()}"
-            ),
-            meta = ActionMeta(
-                workerId = schedule.worker.id.toString(),
-                workerName = schedule.worker.name,
-                scheduledStartAt = schedule.startAtUtc,
-                scheduledEndAt = schedule.endAtUtc
-            )
-        )
-    }
 
     private fun formatTime(odt: OffsetDateTime): String {
         val zdt = odt.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul"))
