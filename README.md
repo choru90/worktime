@@ -1,162 +1,59 @@
-# Spring Kotlin Hexagonal Architecture
+# Worktime API
 
-Spring Boot, Kotlin, JPA, MySQL 기반의 헥사고날 아키텍처 프로젝트입니다.
+소규모 매장의 직원·스케줄·근무기록·시급·예상 급여를 관리하는 Spring Boot/Kotlin API다. Kotlin 1.9.20, Spring Boot 3.2.0, JDK 17 이상, Gradle wrapper, MySQL을 사용한다.
 
-## 기술 스택
+## 현재 기능
 
-- **언어**: Kotlin 1.9.20
-- **프레임워크**: Spring Boot 3.2.0
-- **빌드 도구**: Gradle 8.5
-- **데이터베이스**: MySQL 8.0
-- **ORM**: Spring Data JPA / Hibernate
-- **API 문서화**: Swagger/OpenAPI 3.0
-- **컨테이너**: Docker & Docker Compose
+- 사장/직원 가입과 JWT 로그인, 초대 코드 기반 직원 계정 연결
+- 매장·영업시간·고정 근무·직원·퇴사 관리
+- 스케줄 요청·제안·승인·거절·취소, 고정 근무 월별 생성
+- 직원 출퇴근 및 확정 스케줄의 수동 근무시간 입력
+- 사장 근무기록 승인·반려, 기간별 시급계약과 월별 예상 급여
+- 대시보드와 서비스 내 알림
 
-## 아키텍처
+대체 근무의 요청→후보 수락→관리자 최종 승인 흐름은 아직 구현되지 않았다. 급여 조회는 세금·보험·법정 수당을 포함한 확정 급여가 아니다.
 
-이 프로젝트는 헥사고날 아키텍처(Ports and Adapters) 패턴을 따릅니다:
+## 검증
 
-```
-src/main/kotlin/com/example/demo/
-├── domain/                    # 도메인 레이어 (비즈니스 로직)
-│   └── model/
-│       └── User.kt
-├── application/               # 애플리케이션 레이어 (유스케이스)
-│   ├── port/
-│   │   ├── input/            # Input Ports (유스케이스 인터페이스)
-│   │   │   └── UserUseCase.kt
-│   │   └── output/           # Output Ports (저장소 인터페이스)
-│   │       └── UserRepository.kt
-│   └── service/              # 유스케이스 구현체
-│       └── UserService.kt
-├── adapter/                   # 어댑터 레이어
-│   ├── input/                # Inbound Adapters (컨트롤러)
-│   │   └── web/
-│   │       ├── UserController.kt
-│   │       └── dto/
-│   │           ├── CreateUserRequest.kt
-│   │           └── UserResponse.kt
-│   └── output/               # Outbound Adapters (저장소 구현)
-│       └── persistence/
-│           ├── UserEntity.kt
-│           ├── UserJpaRepository.kt
-│           └── UserRepositoryAdapter.kt
-└── infrastructure/           # 인프라스트럭처 레이어 (설정)
-    └── config/
-        └── SwaggerConfig.kt
+```sh
+./gradlew test
 ```
 
-## 실행 방법
+단위 테스트와 `WorktimeFlowIntegrationTest`를 실행한다. 통합 테스트는 합성 데이터와 H2 메모리 DB로 JWT 필터·컨트롤러·서비스·JPA 경로를 검증하며 각 테스트 뒤 롤백한다. H2 의존성은 testRuntimeOnly다. MySQL Flyway 실행 결과와 실제 브라우저 검증은 별도 확인해야 한다.
 
-### Docker Compose 사용 (권장)
+## 개발 실행
 
-```bash
-# 애플리케이션과 MySQL 함께 실행
-docker-compose up --build
+MySQL과 분리된 개발용 DB를 준비하고 `src/main/resources/application.yml`의 datasource와 JWT 설정 키에 맞는 개발 전용 값을 환경변수 또는 로컬 설정으로 제공한다. 비밀값을 커밋하지 않는다.
 
-# 백그라운드 실행
-docker-compose up -d --build
-
-# 로그 확인
-docker-compose logs -f app
-
-# 종료
-docker-compose down
-
-# 볼륨까지 삭제
-docker-compose down -v
-```
-
-### 로컬 실행
-
-MySQL이 localhost:3306에서 실행 중이어야 합니다.
-
-```bash
-# Gradle로 빌드
-./gradlew build
-
-# 애플리케이션 실행
+```sh
 ./gradlew bootRun
 ```
 
-## API 엔드포인트
+Docker 구성은 Dockerfile과 docker-compose.yml을 참고한다. 기존 Compose의 설정과 볼륨을 확인하고 개발용으로 격리한 뒤 사용한다.
 
-애플리케이션이 실행되면 다음 URL에서 접근 가능합니다:
+- 기본 API: `http://localhost:8080/api`
+- Swagger: `http://localhost:8080/swagger-ui/index.html`
+- 웹 저장소: `choru90/worktime-web`, 개발 프록시 `/api` → localhost:8080
 
-- **API Base URL**: http://localhost:8080/api
-- **Swagger UI**: http://localhost:8080/swagger-ui/index.html
-- **OpenAPI JSON**: http://localhost:8080/api-docs
+## 핵심 API
 
-### User API
+| 경로 | 용도 |
+|---|---|
+| /api/auth | 가입·로그인 |
+| /api/worker/schedules | 직원 본인 일정 조회·응답·근무시간 입력 |
+| /api/worklogs/my | 직원 본인 출퇴근 |
+| /api/work-logs | 관리자 근무기록 조회·승인·반려 |
+| /api/payroll/owner/monthly | 관리자 월별 예상 급여 |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/users | 새 사용자 생성 |
-| GET | /api/users | 모든 사용자 조회 |
-| GET | /api/users/{id} | 특정 사용자 조회 |
+세부 HTTP method와 요청 DTO는 컨트롤러와 Swagger를 기준으로 확인한다.
 
-### 예제 요청
+## 알려진 제한
 
-**사용자 생성**
-```bash
-curl -X POST http://localhost:8080/api/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "홍길동",
-    "email": "hong@example.com"
-  }'
-```
+- 일부 근무기록·일정 API는 역할 검증 외에 소속/소유권 검증이 빠져 있다. 공개 서비스 전 보완이 필요하다.
+- 현재 급여 쿼리는 COMPLETED와 CONFIRMED를 함께 합산하므로 승인 전 기록도 포함될 수 있다.
+- 권한 거절 예외가 공통 예외 처리에서 500으로 변환될 수 있다.
+- 월 경계·시간대·자정 횡단·휴게시간과 중복 근무기록 정책은 추가 검증이 필요하다.
 
-**모든 사용자 조회**
-```bash
-curl http://localhost:8080/api/users
-```
+## 구조
 
-**특정 사용자 조회**
-```bash
-curl http://localhost:8080/api/users/1
-```
-
-## 데이터베이스 접근
-
-```bash
-# MySQL 컨테이너 접속
-docker exec -it spring-kotlin-hexagonal-mysql-1 mysql -u demo_user -pdemo_password demo_db
-
-# 테이블 확인
-SHOW TABLES;
-
-# 사용자 데이터 조회
-SELECT * FROM users;
-```
-
-## 설정 파일
-
-주요 설정은 `src/main/resources/application.yml`에 있습니다:
-
-- 데이터베이스 연결 정보
-- JPA/Hibernate 설정
-- Swagger 설정
-- 로깅 레벨
-
-## 개발 가이드
-
-### 새로운 기능 추가
-
-1. **도메인 모델** 생성 (`domain/model/`)
-2. **Input Port** 정의 (`application/port/input/`)
-3. **Output Port** 정의 (`application/port/output/`)
-4. **Service** 구현 (`application/service/`)
-5. **Controller** 추가 (`adapter/input/web/`)
-6. **Repository Adapter** 구현 (`adapter/output/persistence/`)
-
-### 헥사고날 아키텍처 원칙
-
-- **도메인 레이어**: 프레임워크에 독립적인 순수 비즈니스 로직
-- **애플리케이션 레이어**: 유스케이스 정의 및 구현
-- **어댑터 레이어**: 외부와의 인터페이스 (REST, DB 등)
-- **의존성 방향**: 외부 → 내부 (어댑터 → 애플리케이션 → 도메인)
-
-## 라이선스
-
-MIT
+`domain/model`은 엔티티와 상태, `application/service`는 업무 로직, `application/port`는 인터페이스, `adapter/input/web`은 API, `adapter/output/persistence`는 JPA, `src/main/resources/db/migration`은 Flyway 마이그레이션이다. 현재 도메인 엔티티는 JPA 어노테이션을 사용한다.
