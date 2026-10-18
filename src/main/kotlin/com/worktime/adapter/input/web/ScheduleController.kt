@@ -28,6 +28,7 @@ class ScheduleController(
 ) {
     
     @PostMapping("/workers/{workerId}/schedules")
+    @PreAuthorize("@worktimeAccess.createSchedule(#workerId, #request)")
     @Operation(summary = "스케줄 생성", description = "근로자 요청 또는 고용주 제안으로 스케줄을 생성합니다")
     fun createSchedule(
         @PathVariable workerId: UUID,
@@ -38,6 +39,7 @@ class ScheduleController(
     }
 
     @PatchMapping("/schedules/{scheduleId}")
+    @PreAuthorize("@worktimeAccess.schedule(#scheduleId)")
     @Operation(summary = "스케줄 시간 수정", description = "스케줄의 시간을 수정합니다")
     fun updateScheduleTime(
         @PathVariable scheduleId: UUID,
@@ -48,6 +50,7 @@ class ScheduleController(
     }
     
     @PostMapping("/schedules/{scheduleId}/confirm")
+    @PreAuthorize("@worktimeAccess.respondSchedule(#scheduleId)")
     @Operation(summary = "스케줄 승인", description = "요청되거나 제안된 스케줄을 승인/확정합니다")
     fun confirmSchedule(
         @PathVariable scheduleId: UUID
@@ -57,6 +60,7 @@ class ScheduleController(
     }
     
     @PostMapping("/schedules/{scheduleId}/reject")
+    @PreAuthorize("@worktimeAccess.respondSchedule(#scheduleId)")
     @Operation(summary = "스케줄 거절", description = "요청되거나 제안된 스케줄을 거절합니다")
     fun rejectSchedule(
         @PathVariable scheduleId: UUID
@@ -66,6 +70,7 @@ class ScheduleController(
     }
     
     @PostMapping("/schedules/{scheduleId}/cancel")
+    @PreAuthorize("@worktimeAccess.schedule(#scheduleId)")
     @Operation(summary = "스케줄 취소", description = "확정된 스케줄을 취소합니다")
     fun cancelSchedule(
         @PathVariable scheduleId: UUID
@@ -75,6 +80,7 @@ class ScheduleController(
     }
     
     @GetMapping("/schedules/{scheduleId}")
+    @PreAuthorize("@worktimeAccess.schedule(#scheduleId)")
     @Operation(summary = "스케줄 조회", description = "특정 스케줄의 상세 정보를 조회합니다")
     fun getSchedule(
         @PathVariable scheduleId: UUID
@@ -84,6 +90,7 @@ class ScheduleController(
     }
     
     @GetMapping("/workers/{workerId}/schedules")
+    @PreAuthorize("@worktimeAccess.worker(#workerId)")
     @Operation(summary = "근로자 스케줄 목록 조회", description = "근로자의 스케줄 목록을 기간별로 조회합니다")
     fun getSchedulesByWorker(
         @PathVariable workerId: UUID,
@@ -101,7 +108,7 @@ class ScheduleController(
     
     @GetMapping("/schedules")
     @Operation(summary = "전체 스케줄 조회", description = "모든 근로자의 스케줄을 조회합니다 (OWNER 전용)")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasRole('OWNER') and (#workerId == null or @worktimeAccess.worker(#workerId))")
     fun getAllSchedules(
         @RequestParam(required = false)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)

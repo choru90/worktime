@@ -143,6 +143,8 @@ class DashboardReadServiceTest {
             status = WorkLogStatus.COMPLETED
         )
 
+        workLog1.confirm()
+        workLog2.confirm()
         whenever(workLogRepository.findByOwnerAndTimeRange(any(), eq(monthRange.start), eq(monthRange.endExclusive)))
             .thenReturn(listOf(workLog1, workLog2))
             
@@ -444,6 +446,8 @@ class DashboardReadServiceTest {
             .thenReturn(listOf(log1, log2))
 
         val contract1 = WageContract(worker = w1, hourlyWage = BigDecimal("10000"), startDate = LocalDate.of(2020, 1, 1), endDate = null)
+        log1.confirm()
+        log2.confirm()
         val contract2 = WageContract(worker = w2, hourlyWage = BigDecimal("20000"), startDate = LocalDate.of(2020, 1, 1), endDate = null)
         
         whenever(wageContractRepository.findByWorkerIn(any())).thenReturn(listOf(contract1, contract2))

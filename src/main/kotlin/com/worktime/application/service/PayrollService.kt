@@ -104,7 +104,7 @@ class PayrollService(
         val toDateTime = to.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)
         
         // Find completed work logs in range
-        val workLogs = workLogRepository.findCompletedWorkLogsInRange(
+        val workLogs = workLogRepository.findConfirmedWorkLogsInRange(
             worker = worker,
             startTime = fromDateTime,
             endTime = toDateTime
@@ -194,7 +194,7 @@ class PayrollService(
         val toDateTime = to.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)
         
         // Find completed work logs in range
-        val workLogs = workLogRepository.findCompletedWorkLogsInRange(
+        val workLogs = workLogRepository.findConfirmedWorkLogsInRange(
             worker = worker,
             startTime = fromDateTime,
             endTime = toDateTime

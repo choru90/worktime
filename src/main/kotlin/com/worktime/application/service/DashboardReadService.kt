@@ -94,7 +94,6 @@ class DashboardReadService(
         val workLogs = workLogRepository.findByOwnerAndTimeRange(
             ownerId, range.start, range.endExclusive
         ).filter { 
-            it.status == com.worktime.domain.model.WorkLogStatus.COMPLETED || 
             it.status == com.worktime.domain.model.WorkLogStatus.CONFIRMED 
         }
         
@@ -377,7 +376,7 @@ class DashboardReadService(
                  val workDate = log.clockInAt.atZoneSameInstant(zoneId).toLocalDate()
                  val validContract = contractsMap[workerId]?.find { it.isActiveOn(workDate) }
                  
-                 if (validContract != null) {
+                 if (validContract != null && log.status == com.worktime.domain.model.WorkLogStatus.CONFIRMED) {
                      // MVP Policy: floor(minutes / 60 * wage) -> Not accurate double math.
                      // Suggestion: minutes * hourly / 60 to preserve precision then floor.
                      // user prompt: "sum( floor(totalWorkMinutes / 60 * hourlyWage) )" -> Check interpretation.
