@@ -24,7 +24,7 @@ class PayrollController(
     
     @GetMapping("/work-summary")
     @Operation(summary = "근무 요약 조회", description = "근로자의 기간별 근무 시간 요약을 조회합니다")
-    @PreAuthorize("hasAnyRole('OWNER', 'WORKER')")
+    @PreAuthorize("@worktimeAccess.worker(#workerId)")
     fun getWorkSummary(
         @PathVariable workerId: UUID,
         @RequestParam
@@ -40,7 +40,7 @@ class PayrollController(
     
     @GetMapping("/payroll")
     @Operation(summary = "급여 계산", description = "근로자의 기간별 급여를 계산합니다")
-    @PreAuthorize("hasAnyRole('OWNER', 'WORKER')")
+    @PreAuthorize("@worktimeAccess.worker(#workerId)")
     fun calculatePayroll(
 
         @PathVariable workerId: UUID,

@@ -135,7 +135,7 @@ class PayrollServiceTest {
         )
         
         whenever(workerRepository.findById(workerId)).thenReturn(testWorker)
-        whenever(workLogRepository.findCompletedWorkLogsInRange(any(), any(), any()))
+        whenever(workLogRepository.findConfirmedWorkLogsInRange(any(), any(), any()))
             .thenReturn(listOf(workLog))
         whenever(wageContractUseCase.getWageOnDate(any(), any())).thenReturn(wageInfo)
         
@@ -171,7 +171,7 @@ class PayrollServiceTest {
         )
         
         whenever(workerRepository.findById(workerId)).thenReturn(testWorker)
-        whenever(workLogRepository.findCompletedWorkLogsInRange(any(), any(), any()))
+        whenever(workLogRepository.findConfirmedWorkLogsInRange(any(), any(), any()))
             .thenReturn(listOf(workLog))
         whenever(wageContractUseCase.getWageOnDate(any(), any())).thenReturn(wageInfo)
         

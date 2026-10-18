@@ -18,7 +18,8 @@ import java.util.*
 @RequestMapping("/api/payroll")
 @Tag(name = "Owner Payroll", description = "사장용 급여 관리 API")
 class OwnerPayrollController(
-    private val payrollUseCase: PayrollUseCase
+    private val payrollUseCase: PayrollUseCase,
+    private val worktimeAccess: com.worktime.application.service.WorktimeAccess
 ) {
     
     @GetMapping("/owner/monthly")
@@ -31,13 +32,14 @@ class OwnerPayrollController(
     ): ResponseEntity<List<PayrollResponse>> {
         val authentication = SecurityContextHolder.getContext().authentication
         val userId = UUID.fromString(authentication.name)
+        if (workerId != null) worktimeAccess.worker(workerId)
         val response = payrollUseCase.getMonthlyPayrollSummary(userId, year, month, workerId)
         return ResponseEntity.ok(response)
     }
     
     @GetMapping("/workers/{workerId}/monthly")
     @Operation(summary = "특정 근로자 월별 급여 상세 조회", description = "특정 근로자의 월별 급여 상세를 조회합니다 (OWNER 전용)")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#workerId)")
     fun getWorkerMonthlyPayrollDetail(
         @PathVariable workerId: UUID,
         @RequestParam year: Int,

@@ -124,6 +124,52 @@ class WageContractServiceTest {
     }
 
     @Test
+    fun `new wage closes previous open contract without rejecting its overlap`() {
+        val previous = WageContract(worker = testWorker, hourlyWage = BigDecimal("9000"),
+            startDate = LocalDate.of(2025, 1, 1))
+        whenever(workerRepository.findById(workerId)).thenReturn(testWorker)
+        whenever(wageContractRepository.findCurrentActiveContract(testWorker)).thenReturn(previous)
+        whenever(wageContractRepository.findContractsOverlappingPeriod(any(), any(), any()))
+            .thenReturn(listOf(previous))
+        whenever(wageContractRepository.save(any())).thenAnswer { it.arguments[0] }
+
+        service.createWageContract(workerId, WageContractCreateRequest(
+            BigDecimal("10000"), LocalDate.of(2025, 6, 1), null))
+
+        assertEquals(LocalDate.of(2025, 5, 31), previous.endDate)
+        verify(wageContractRepository, times(2)).save(any())
+    }
+
+    @Test
+    fun `conflicting historical contract leaves open contract unchanged`() {
+        val previous = WageContract(worker = testWorker, hourlyWage = BigDecimal("9000"),
+            startDate = LocalDate.of(2025, 1, 1))
+        val historical = WageContract(worker = testWorker, hourlyWage = BigDecimal("8000"),
+            startDate = LocalDate.of(2024, 1, 1), endDate = LocalDate.of(2024, 12, 31))
+        whenever(workerRepository.findById(workerId)).thenReturn(testWorker)
+        whenever(wageContractRepository.findCurrentActiveContract(testWorker)).thenReturn(previous)
+        whenever(wageContractRepository.findContractsOverlappingPeriod(any(), any(), any()))
+            .thenReturn(listOf(previous, historical))
+
+        assertThrows<BusinessException> {
+            service.createWageContract(workerId, WageContractCreateRequest(
+                BigDecimal("10000"), LocalDate.of(2024, 6, 1), null))
+        }
+        assertNull(previous.endDate)
+        verify(wageContractRepository, never()).save(any())
+    }
+
+    @Test
+    fun `invalid contract period cannot modify existing contract`() {
+        whenever(workerRepository.findById(workerId)).thenReturn(testWorker)
+        assertThrows<BusinessException> {
+            service.createWageContract(workerId, WageContractCreateRequest(
+                BigDecimal("10000"), LocalDate.of(2025, 6, 1), LocalDate.of(2025, 5, 31)))
+        }
+        verifyNoInteractions(wageContractRepository)
+    }
+
+    @Test
     fun `getWageOnDate - should return wage info when contract exists`() {
         // Given
         val queryDate = LocalDate.of(2025, 6, 15)

@@ -72,26 +72,27 @@ class WorkerScheduleController(
     }
     
     @PostMapping("/{scheduleId}/confirm")
+    @PreAuthorize("hasRole('WORKER') and @worktimeAccess.respondSchedule(#scheduleId)")
     @Operation(summary = "스케줄 승인", description = "사장님이 제안한 스케줄을 승인합니다")
     fun confirmSchedule(
         @PathVariable scheduleId: UUID
     ): ResponseEntity<ScheduleResponse> {
-        // TODO: 본인 스케줄인지 검증 필요
         val response = scheduleUseCase.confirmSchedule(scheduleId)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/{scheduleId}/reject")
+    @PreAuthorize("hasRole('WORKER') and @worktimeAccess.respondSchedule(#scheduleId)")
     @Operation(summary = "스케줄 거절", description = "사장님이 제안한 스케줄을 거절합니다")
     fun rejectSchedule(
         @PathVariable scheduleId: UUID
     ): ResponseEntity<ScheduleResponse> {
-        // TODO: 본인 스케줄인지 검증 필요
         val response = scheduleUseCase.rejectSchedule(scheduleId)
         return ResponseEntity.ok(response)
     }
     
     @PostMapping("/{scheduleId}/worklog")
+    @PreAuthorize("hasRole('WORKER') and @worktimeAccess.schedule(#scheduleId)")
     @Operation(summary = "근무 기록 수동 생성", description = "확정된 스케줄에 대한 실제 근무 시간을 입력합니다")
     fun createWorkLog(
         @PathVariable scheduleId: UUID,

@@ -16,6 +16,18 @@ import java.util.*
  */
 @Repository
 interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
+
+    @Query("""
+        SELECT wl FROM WorkLog wl WHERE wl.worker = :worker
+        AND wl.status = 'CONFIRMED'
+        AND wl.clockInAt >= :startTime AND wl.clockOutAt <= :endTime
+        ORDER BY wl.clockInAt DESC
+    """)
+    fun findConfirmedWorkLogsInRange(
+        @Param("worker") worker: Worker,
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime
+    ): List<WorkLog>
     
     /**
      * Find all work logs for a worker

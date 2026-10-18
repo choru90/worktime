@@ -48,6 +48,9 @@ class WorkLogService(
                 ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
         }
         
+        if (schedule != null && schedule.worker.id != workerId) {
+            throw ResourceNotFoundException("Resource not found")
+        }
         val workLog = WorkLog(
             worker = worker,
             schedule = schedule,
@@ -145,13 +148,15 @@ class WorkLogService(
         from: OffsetDateTime?,
         to: OffsetDateTime?,
         workerId: UUID?,
-        status: WorkLogStatus?
+        status: WorkLogStatus?,
+        ownerId: UUID
     ): List<WorkLogResponse> {
         // Filter by workerId if provided
         val workLogList = when {
             workerId != null -> {
                 val worker = workerRepository.findById(workerId)
                     ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+                if (worker.owner.id != ownerId) throw ResourceNotFoundException("Resource not found")
                 
                 if (from != null && to != null) {
                     workLogRepository.findByWorkerAndTimeRange(worker, from, to)
@@ -160,7 +165,7 @@ class WorkLogService(
                 }
             }
             from != null && to != null -> {
-                workLogRepository.findByTimeRange(from, to)
+                workLogRepository.findByOwnerAndTimeRange(ownerId, from, to)
             }
             else -> emptyList()
         }
@@ -174,7 +179,7 @@ class WorkLogService(
                     emptyList()
                 }
             } else {
-                scheduleRepository.findByTimeRange(from, to)
+                scheduleRepository.findByOwnerAndTimeRange(ownerId, from, to)
             }
             
             val ongoingOrCompletedScheduleIdList = workLogList.mapNotNull { it.schedule?.id }.toSet()

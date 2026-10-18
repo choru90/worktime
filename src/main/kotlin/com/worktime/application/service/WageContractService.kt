@@ -28,9 +28,19 @@ class WageContractService(
     override fun createWageContract(workerId: UUID, request: WageContractCreateRequest): WageContractResponse {
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+
+        if (request.endDate != null && request.endDate.isBefore(request.startDate)) {
+            throw BusinessException("Contract end date must not be before start date")
+        }
         
         // 기존 활성 계약이 있으면 자동으로 종료
         val currentActiveContract = wageContractRepository.findCurrentActiveContract(worker)
+        val overlappingContracts = wageContractRepository.findContractsOverlappingPeriod(
+            worker, request.startDate, request.endDate ?: LocalDate.of(2999, 12, 31)
+        ).filter { it.id != currentActiveContract?.id }
+        if (overlappingContracts.isNotEmpty()) {
+            throw BusinessException("Wage contract period overlaps with existing contract(s)")
+        }
         if (currentActiveContract != null) {
             // 새 계약 시작일 전날로 종료
             val endDate = request.startDate.minusDays(1)
@@ -105,26 +115,4 @@ class WageContractService(
         return getWageHistory(worker)
     }
 
-    /**
-     * Validate that the new contract period does not overlap with existing contracts.
-     */
-    private fun validateNonOverlapping(worker: Worker, startDate: LocalDate, endDate: LocalDate?) {
-        val effectiveEndDate = endDate ?: LocalDate.of(2999, 12, 31)
-        
-        val overlappingContracts = wageContractRepository.findContractsOverlappingPeriod(
-            worker = worker,
-            startDate = startDate,
-            endDate = effectiveEndDate
-        )
-        
-        if (overlappingContracts.isNotEmpty()) {
-            throw BusinessException(
-                "Wage contract period overlaps with existing contract(s). " +
-                "Please ensure the period does not conflict with: " +
-                overlappingContracts.joinToString(", ") { 
-                    "${it.startDate} ~ ${it.endDate ?: "ongoing"}" 
-                }
-            )
-        }
-    }
 }

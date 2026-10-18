@@ -11,6 +11,8 @@ import java.util.*
 interface WorkLogRepository {
     
     fun save(workLog: WorkLog): WorkLog
+
+    fun findConfirmedWorkLogsInRange(worker: Worker, startTime: OffsetDateTime, endTime: OffsetDateTime): List<WorkLog>
     
     fun findById(id: UUID): WorkLog?
     

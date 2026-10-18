@@ -49,7 +49,8 @@ interface WorkLogUseCase {
         from: OffsetDateTime?,
         to: OffsetDateTime?,
         workerId: UUID?,
-        status: WorkLogStatus?
+        status: WorkLogStatus?,
+        ownerId: UUID
     ): List<WorkLogResponse>
     
     /**

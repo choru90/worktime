@@ -200,11 +200,11 @@ class WorkLogServiceTest {
             status = com.worktime.domain.model.ScheduleStatus.CONFIRMED
         )
         
-        whenever(workLogRepository.findByTimeRange(fromTime, toTime)).thenReturn(emptyList())
-        whenever(scheduleRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(schedule))
+        whenever(workLogRepository.findByOwnerAndTimeRange(testWorker.owner.id, fromTime, toTime)).thenReturn(emptyList())
+        whenever(scheduleRepository.findByOwnerAndTimeRange(testWorker.owner.id, fromTime, toTime)).thenReturn(listOf(schedule))
         
         // When
-        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null)
+        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null, testWorker.owner.id)
         
         // Then
         assertEquals(1, resultList.size)
@@ -229,11 +229,11 @@ class WorkLogServiceTest {
             status = com.worktime.domain.model.ScheduleStatus.REQUESTED_BY_WORKER
         )
         
-        whenever(workLogRepository.findByTimeRange(fromTime, toTime)).thenReturn(emptyList())
-        whenever(scheduleRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(schedule))
+        whenever(workLogRepository.findByOwnerAndTimeRange(testWorker.owner.id, fromTime, toTime)).thenReturn(emptyList())
+        whenever(scheduleRepository.findByOwnerAndTimeRange(testWorker.owner.id, fromTime, toTime)).thenReturn(listOf(schedule))
         
         // When
-        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null)
+        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null, testWorker.owner.id)
         
         // Then
         assertEquals(1, resultList.size)
@@ -263,11 +263,11 @@ class WorkLogServiceTest {
             status = WorkLogStatus.COMPLETED
         )
         
-        whenever(workLogRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(workLog))
-        whenever(scheduleRepository.findByTimeRange(fromTime, toTime)).thenReturn(listOf(schedule))
+        whenever(workLogRepository.findByOwnerAndTimeRange(testWorker.owner.id, fromTime, toTime)).thenReturn(listOf(workLog))
+        whenever(scheduleRepository.findByOwnerAndTimeRange(testWorker.owner.id, fromTime, toTime)).thenReturn(listOf(schedule))
         
         // When
-        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null)
+        val resultList = service.getAllWorkLogs(fromTime, toTime, null, null, testWorker.owner.id)
         
         // Then
         assertEquals(1, resultList.size)

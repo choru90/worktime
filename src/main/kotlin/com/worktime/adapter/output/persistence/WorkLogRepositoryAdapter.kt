@@ -14,6 +14,9 @@ import java.util.*
 class WorkLogRepositoryAdapter(
     private val workLogJpaRepository: WorkLogJpaRepository
 ) : WorkLogRepository {
+
+    override fun findConfirmedWorkLogsInRange(worker: Worker, startTime: OffsetDateTime, endTime: OffsetDateTime): List<WorkLog> =
+        workLogJpaRepository.findConfirmedWorkLogsInRange(worker, startTime, endTime)
     
     override fun save(workLog: WorkLog): WorkLog {
         return workLogJpaRepository.save(workLog)
