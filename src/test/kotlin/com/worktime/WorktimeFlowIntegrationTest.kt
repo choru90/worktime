@@ -31,6 +31,22 @@ import java.time.OffsetDateTime
 @Transactional
 class WorktimeFlowIntegrationTest {
     @Test
+    fun `monthly payroll detail allows own worker and denies foreign worker`() {
+        val ownerUser = user(UserRole.OWNER)
+        val employer = Owner(user = ownerUser).also(::persist)
+        val employee = user(UserRole.WORKER)
+        val stranger = user(UserRole.WORKER)
+        val worker = Worker(name = "Self", phoneNumber = "00000000000", owner = employer, userAccount = employee).also(::persist)
+        em.flush()
+        val endpoint = "/api/payroll/workers/${worker.id}/monthly?year=2026&month=10"
+        mvc.perform(get(endpoint).header("Authorization", token(employee))).andExpect(status().isOk)
+        mvc.perform(get(endpoint).header("Authorization", token(ownerUser))).andExpect(status().isOk)
+        mvc.perform(get(endpoint).header("Authorization", token(stranger))).andExpect(status().isNotFound)
+        mvc.perform(get("/api/payroll/owner/monthly?year=2026&month=10").header("Authorization", token(employee)))
+            .andExpect(status().isForbidden)
+    }
+
+    @Test
     fun `owner cannot manage or invite another owners worker`() {
         val employer = Owner(user = user(UserRole.OWNER)).also(::persist)
         val intruder = user(UserRole.OWNER)
