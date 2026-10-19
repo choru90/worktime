@@ -38,8 +38,8 @@ class OwnerPayrollController(
     }
     
     @GetMapping("/workers/{workerId}/monthly")
-    @Operation(summary = "특정 근로자 월별 급여 상세 조회", description = "특정 근로자의 월별 급여 상세를 조회합니다 (OWNER 전용)")
-    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#workerId)")
+    @Operation(summary = "특정 근로자 월별 급여 상세 조회", description = "소유 사업장의 근로자 또는 직원 본인의 월별 급여 상세를 조회합니다")
+    @PreAuthorize("hasAnyRole('OWNER', 'WORKER') and @worktimeAccess.worker(#workerId)")
     fun getWorkerMonthlyPayrollDetail(
         @PathVariable workerId: UUID,
         @RequestParam year: Int,
@@ -49,4 +49,5 @@ class OwnerPayrollController(
         return ResponseEntity.ok(response)
     }
 }
+
 

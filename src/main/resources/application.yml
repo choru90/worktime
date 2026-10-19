@@ -17,6 +17,8 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+        jdbc:
+          time_zone: UTC
         generate_statistics: true
         session:
           events:
@@ -28,6 +30,8 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+    placeholders:
+      legacyScheduleTimezone: ${WORKTIME_LEGACY_SCHEDULE_TIMEZONE:}
 
 springdoc:
   api-docs:
@@ -63,4 +67,5 @@ logging:
     com.worktime: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
 
