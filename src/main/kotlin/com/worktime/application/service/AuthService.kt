@@ -102,11 +102,13 @@ class AuthService(
         )
     }
     
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun signUpWorker(request: WorkerSignUpRequest): LoginResponse {
         // 초대 코드로 Worker 조회
         val worker = workerRepository.findByInviteCode(request.inviteCode.uppercase())
             ?: throw ResourceNotFoundException("유효하지 않은 초대 코드입니다")
         
+        workerRepository.lockForWrite(worker)
         // 초대 코드 유효성 검사
         if (!worker.isInviteCodeValid()) {
             throw BusinessException("초대 코드가 만료되었습니다. 사장님에게 새 코드를 요청하세요.")
@@ -150,7 +152,6 @@ class AuthService(
         // 사용자 조회
         val user = userRepository.findByEmail(request.email)
             ?: throw InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다")
-        println(user.password)
         // 비밀번호 검증
         if (!passwordEncoder.matches(request.password, user.password)) {
             throw InvalidCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다")
@@ -182,4 +183,5 @@ class AuthService(
         )
     }
 }
+
 

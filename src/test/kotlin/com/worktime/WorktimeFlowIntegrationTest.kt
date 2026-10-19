@@ -30,6 +30,144 @@ import java.time.OffsetDateTime
 @AutoConfigureMockMvc
 @Transactional
 class WorktimeFlowIntegrationTest {
+    @Test
+    fun `owner cannot manage or invite another owners worker`() {
+        val employer = Owner(user = user(UserRole.OWNER)).also(::persist)
+        val intruder = user(UserRole.OWNER)
+        Owner(user = intruder).also(::persist)
+        val worker = Worker(name = "Private", phoneNumber = "00000000000", owner = employer).also(::persist)
+        em.flush()
+        mvc.perform(get("/api/workers/${worker.id}").header("Authorization", token(intruder)))
+            .andExpect(status().isNotFound)
+        mvc.perform(post("/api/workers/${worker.id}/invite").header("Authorization", token(intruder)))
+            .andExpect(status().isNotFound)
+        mvc.perform(put("/api/workers/${worker.id}").header("Authorization", token(intruder))
+            .contentType(MediaType.APPLICATION_JSON).content("""{"name":"Changed","phoneNumber":"00000000000"}"""))
+            .andExpect(status().isNotFound)
+        mvc.perform(delete("/api/workers/${worker.id}").header("Authorization", token(intruder)))
+            .andExpect(status().isNotFound)
+        mvc.perform(post("/api/workers/${worker.id}/resign?resignDate=2026-10-19")
+            .header("Authorization", token(intruder))).andExpect(status().isNotFound)
+        assertNull(worker.inviteCode)
+        assertTrue(worker.active)
+        assertEquals("Private", worker.name)
+    }
+
+    @Test
+    fun `owner cannot connect worker to another owners store`() {
+        val ownerUser = user(UserRole.OWNER)
+        val employer = Owner(user = ownerUser).also(::persist)
+        val other = Owner(user = user(UserRole.OWNER)).also(::persist)
+        val foreignStore = Store(owner = other, name = "Foreign").also(::persist)
+        val worker = Worker(name = "Own", phoneNumber = "00000000000", owner = employer).also(::persist)
+        em.flush()
+        val body = """{"name":"Own","phoneNumber":"00000000000","storeId":"${foreignStore.id}"}"""
+        mvc.perform(post("/api/workers").header("Authorization", token(ownerUser))
+            .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isNotFound)
+        mvc.perform(put("/api/workers/${worker.id}").header("Authorization", token(ownerUser))
+            .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isNotFound)
+        assertNull(worker.store)
+    }
+
+    @Test
+    fun `invite signup connects only once and exposes own store`() {
+        val ownerUser = user(UserRole.OWNER)
+        val employer = Owner(user = ownerUser).also(::persist)
+        val store = Store(owner = employer, name = "MVP Store").also(::persist)
+        val worker = Worker(name = "Invited", phoneNumber = "00000000000", owner = employer, store = store).also(::persist)
+        em.flush()
+        val invitation = mvc.perform(post("/api/workers/${worker.id}/invite").header("Authorization", token(ownerUser)))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        val code = json.readTree(invitation)["inviteCode"].asText()
+        val signup = """{"inviteCode":"$code","email":"new-worker@example.test","password":"synthetic-password"}"""
+        val joined = mvc.perform(post("/api/auth/workers/signup").contentType(MediaType.APPLICATION_JSON).content(signup))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val session = json.readTree(joined)
+        assertEquals(worker.id.toString(), session["workerId"].asText())
+        mvc.perform(post("/api/auth/workers/signup").contentType(MediaType.APPLICATION_JSON)
+            .content(signup.replace("new-worker", "reused"))).andExpect(status().isNotFound)
+        val profile = mvc.perform(get("/api/workers/my").header("Authorization", "Bearer ${session["accessToken"].asText()}"))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        assertEquals("MVP Store", json.readTree(profile)["storeName"].asText())
+        assertEquals(store.id.toString(), json.readTree(profile)["storeId"].asText())
+        assertNull(worker.inviteCode)
+    }
+
+    @Test
+    fun `a schedule cannot be submitted twice and approval retry is a client error`() {
+        val ownerUser = user(UserRole.OWNER)
+        val employer = Owner(user = ownerUser).also(::persist)
+        val employee = user(UserRole.WORKER)
+        val worker = Worker(name = "Worker", phoneNumber = "00000000000", owner = employer, userAccount = employee).also(::persist)
+        val start = OffsetDateTime.parse("2026-10-10T01:00:00Z")
+        val schedule = Schedule(worker = worker, startAtUtc = start, endAtUtc = start.plusHours(4),
+            timezone = "Asia/Seoul", status = ScheduleStatus.CONFIRMED).also(::persist)
+        em.flush()
+        val body = """{"clockInAt":"$start","clockOutAt":"${start.plusHours(4)}"}"""
+        val response = mvc.perform(post("/api/worker/schedules/${schedule.id}/worklog")
+            .header("Authorization", token(employee)).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        mvc.perform(post("/api/worker/schedules/${schedule.id}/worklog")
+            .header("Authorization", token(employee)).contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isConflict)
+        val id = json.readTree(response)["id"].asText()
+        mvc.perform(post("/api/work-logs/$id/confirm").header("Authorization", token(ownerUser))).andExpect(status().isOk)
+        mvc.perform(post("/api/work-logs/$id/confirm").header("Authorization", token(ownerUser))).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `clock buttons submit record and only owner approval makes payroll visible`() {
+        val ownerUser = user(UserRole.OWNER)
+        val employer = Owner(user = ownerUser).also(::persist)
+        val employee = user(UserRole.WORKER)
+        val worker = Worker(name = "Clock test", phoneNumber = "00000000000", owner = employer,
+            userAccount = employee).also(::persist)
+        WageContract(worker = worker, hourlyWage = BigDecimal("10000"),
+            startDate = java.time.LocalDate.of(2020, 1, 1)).also(::persist)
+        em.flush()
+        val auth = token(employee)
+        val empty = mvc.perform(get("/api/worklogs/my/current").header("Authorization", auth))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        assertTrue(empty.isEmpty())
+        val response = mvc.perform(post("/api/worklogs/my/clock-in").header("Authorization", auth))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        mvc.perform(post("/api/worklogs/my/clock-in").header("Authorization", auth))
+            .andExpect(status().isConflict)
+        val id = java.util.UUID.fromString(json.readTree(response)["id"].asText())
+        // Move only this synthetic record backwards instead of waiting four real hours.
+        val log = em.find(WorkLog::class.java, id)
+        log.clockInAt = OffsetDateTime.now().minusHours(4)
+        em.flush()
+        mvc.perform(post("/api/worklogs/my/clock-out").header("Authorization", auth))
+            .andExpect(status().isOk)
+        val day = OffsetDateTime.now().toLocalDate()
+        val payrollUrl = "/api/workers/${worker.id}/payroll?from=${day.minusDays(1)}&to=${day.plusDays(1)}"
+        val before = mvc.perform(get(payrollUrl).header("Authorization", auth)).andExpect(status().isOk)
+            .andReturn().response.contentAsString
+        assertEquals(0, json.readTree(before)["totalPay"].decimalValue().signum())
+        mvc.perform(post("/api/work-logs/$id/confirm").header("Authorization", token(ownerUser)))
+            .andExpect(status().isOk)
+        val after = mvc.perform(get(payrollUrl).header("Authorization", auth)).andExpect(status().isOk)
+            .andReturn().response.contentAsString
+        assertEquals(0, BigDecimal("40000").compareTo(json.readTree(after)["totalPay"].decimalValue()))
+        val history = mvc.perform(get("/api/worklogs/my?fromDate=${day.minusDays(1)}&toDate=${day.plusDays(1)}")
+            .header("Authorization", auth)).andExpect(status().isOk).andReturn().response.contentAsString
+        assertEquals("CONFIRMED", json.readTree(history)[0]["status"].asText())
+    }
+
+    @Test
+    fun `expired invitation cannot link an account`() {
+        val employer = Owner(user = user(UserRole.OWNER)).also(::persist)
+        val worker = Worker(name = "Expired", phoneNumber = "00000000000", owner = employer).also(::persist)
+        worker.generateInviteCode()
+        worker.inviteCodeExpiresAt = OffsetDateTime.now().minusSeconds(1)
+        em.flush()
+        mvc.perform(post("/api/auth/workers/signup").contentType(MediaType.APPLICATION_JSON)
+            .content("""{"inviteCode":"${worker.inviteCode}","email":"expired@example.test","password":"synthetic-password"}"""))
+            .andExpect(status().isBadRequest)
+        assertNull(worker.userAccount)
+    }
+
     @Autowired lateinit var mvc: MockMvc
     @Autowired lateinit var em: EntityManager
     @Autowired lateinit var json: ObjectMapper
@@ -227,8 +365,11 @@ class WorktimeFlowIntegrationTest {
 
     @Test
     fun `anonymous requests cannot read or change work records`() {
-        mvc.perform(get("/api/work-logs")).andExpect(status().isForbidden)
+        mvc.perform(get("/api/work-logs")).andExpect(status().isUnauthorized)
         mvc.perform(post("/api/work-logs/${java.util.UUID.randomUUID()}/confirm"))
-            .andExpect(status().isForbidden)
+            .andExpect(status().isUnauthorized)
+        mvc.perform(get("/api/worklogs/my/current").header("Authorization", "Bearer invalid-synthetic-token"))
+            .andExpect(status().isUnauthorized)
     }
 }
+
