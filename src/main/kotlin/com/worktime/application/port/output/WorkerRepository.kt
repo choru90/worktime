@@ -7,6 +7,8 @@ import java.util.*
  * Output port (Repository interface) for Worker persistence.
  */
 interface WorkerRepository {
+    /** Serialize account linking and work-log writes for a worker inside the caller transaction. */
+    fun lockForWrite(worker: Worker) {}
     fun save(worker: Worker): Worker
     fun findById(id: UUID): Worker?
     fun findAll(): List<Worker>
@@ -19,3 +21,4 @@ interface WorkerRepository {
     fun findByInviteCode(inviteCode: String): Worker?
     fun delete(worker: Worker)
 }
+

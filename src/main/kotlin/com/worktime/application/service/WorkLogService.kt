@@ -31,9 +31,11 @@ class WorkLogService(
     private val scheduleRepository: ScheduleRepository
 ) : WorkLogUseCase {
     
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun clockIn(workerId: UUID, request: ClockInRequest): WorkLogResponse {
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        workerRepository.lockForWrite(worker)
         
         // Check if worker already has an ongoing work log
         if (workLogRepository.hasOngoingWorkLog(worker)) {
@@ -51,6 +53,9 @@ class WorkLogService(
         if (schedule != null && schedule.worker.id != workerId) {
             throw ResourceNotFoundException("Resource not found")
         }
+        if (schedule != null && workLogRepository.findByScheduleIds(listOf(schedule.id)).isNotEmpty()) {
+            throw WorkLogConflictException("A work log already exists for this schedule")
+        }
         val workLog = WorkLog(
             worker = worker,
             schedule = schedule,
@@ -61,9 +66,11 @@ class WorkLogService(
         return WorkLogResponse.from(savedWorkLog)
     }
     
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun clockOut(workerId: UUID, request: ClockOutRequest): WorkLogResponse {
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        workerRepository.lockForWrite(worker)
         
         // Find the current ongoing work log
         val workLog = workLogRepository.findCurrentOngoingWorkLog(worker)
@@ -88,9 +95,11 @@ class WorkLogService(
         return WorkLogResponse.from(savedWorkLog)
     }
     
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun createManualWorkLog(workerId: UUID, scheduleId: UUID, request: ManualWorkLogRequest): WorkLogResponse {
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
+        workerRepository.lockForWrite(worker)
         
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
@@ -105,8 +114,9 @@ class WorkLogService(
             throw BusinessException("확정된 스케줄에만 근무 기록을 작성할 수 있습니다")
         }
         
-        // 이 스케줄에 이미 근무 기록이 있는지 확인
-        // (TODO: 필요시 스케줄ID로 조회하는 repository 메서드 추가)
+        if (workLogRepository.findByScheduleIds(listOf(scheduleId)).isNotEmpty()) {
+            throw WorkLogConflictException("A work log already exists for this schedule")
+        }
         
         // WorkLog 생성 (출퇴근 완료 상태로 바로 생성)
         val workLog = WorkLog(
@@ -223,7 +233,7 @@ class WorkLogService(
         
         try {
             workLog.confirm()
-        } catch (e: IllegalStateException) {
+        } catch (e: IllegalArgumentException) {
             throw InvalidWorkLogStateException(e.message ?: "Cannot confirm work log in current state")
         }
         
@@ -237,7 +247,7 @@ class WorkLogService(
         
         try {
             workLog.reject()
-        } catch (e: IllegalStateException) {
+        } catch (e: IllegalArgumentException) {
             throw InvalidWorkLogStateException(e.message ?: "Cannot reject work log in current state")
         }
         
@@ -253,3 +263,4 @@ class WorkLogService(
         return workLog?.let { WorkLogResponse.from(it) }
     }
 }
+

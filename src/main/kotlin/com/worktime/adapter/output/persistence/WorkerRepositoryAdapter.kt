@@ -10,8 +10,14 @@ import java.util.*
  */
 @Repository
 class WorkerRepositoryAdapter(
-    private val jpaRepository: WorkerJpaRepository
+    private val jpaRepository: WorkerJpaRepository,
+    private val entityManager: jakarta.persistence.EntityManager
 ) : WorkerRepository {
+
+    override fun lockForWrite(worker: Worker) {
+        entityManager.lock(worker, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+        entityManager.refresh(worker)
+    }
 
     override fun save(worker: Worker): Worker {
         return jpaRepository.save(worker)
@@ -57,3 +63,4 @@ class WorkerRepositoryAdapter(
         jpaRepository.delete(worker)
     }
 }
+

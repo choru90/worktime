@@ -31,6 +31,7 @@ class WorkerService(
         val store = request.storeId?.let { storeId ->
             storeRepository.findById(storeId)
                 .orElseThrow { ResourceNotFoundException("Store not found with id: $storeId") }
+                .also { if (it.owner.id != owner.id) throw ResourceNotFoundException("Resource not found") }
         }
 
         val worker = Worker(
@@ -53,6 +54,7 @@ class WorkerService(
         worker.store = request.storeId?.let { storeId ->
             storeRepository.findById(storeId)
                 .orElseThrow { ResourceNotFoundException("Store not found with id: $storeId") }
+                .also { if (it.owner.id != worker.owner.id) throw ResourceNotFoundException("Resource not found") }
         }
         
         val updatedWorker = workerRepository.save(worker)
@@ -125,10 +127,12 @@ class WorkerService(
         return filteredWorkerList.map { WorkerResponse.from(it) }
     }
     
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun generateInviteCode(workerId: UUID): InviteCodeResponse {
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
         
+        workerRepository.lockForWrite(worker)
         // 이미 계정이 연결된 경우 에러
         if (worker.userAccount != null) {
             throw com.worktime.domain.exception.BusinessException("이미 계정이 연결된 알바생입니다.")
@@ -144,3 +148,4 @@ class WorkerService(
         )
     }
 }
+

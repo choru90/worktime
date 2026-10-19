@@ -21,9 +21,19 @@ import java.util.*
 @Tag(name = "근로자", description = "근로자 관리 API")
 @PreAuthorize("hasRole('OWNER')")
 class WorkerController(
-    private val workerUseCase: WorkerUseCase
+    private val workerUseCase: WorkerUseCase,
+    private val workers: com.worktime.application.port.output.WorkerRepository
 ) {
 
+
+    @GetMapping("/my")
+    @PreAuthorize("hasRole('WORKER')")
+    fun getMyWorker(): ResponseEntity<WorkerResponse> {
+        val auth = org.springframework.security.core.context.SecurityContextHolder.getContext().authentication
+        val worker = workers.findByUserAccountId(UUID.fromString(auth.name))
+            ?: throw com.worktime.domain.exception.ResourceNotFoundException("Resource not found")
+        return ResponseEntity.ok(WorkerResponse.from(worker))
+    }
 
     @PostMapping
     @Operation(
@@ -45,6 +55,7 @@ class WorkerController(
         summary = "근로자 정보 수정",
         description = "기존 근로자의 정보를 수정합니다"
     )
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#id)")
     fun updateWorker(
         @Parameter(description = "근로자 ID") @PathVariable id: UUID,
         @Valid @RequestBody request: WorkerUpdateRequest
@@ -58,6 +69,7 @@ class WorkerController(
         summary = "근로자 삭제 (비활성화)",
         description = "근로자를 소프트 삭제합니다 (active 상태를 false로 설정)"
     )
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#id)")
     fun deleteWorker(
         @Parameter(description = "근로자 ID") @PathVariable id: UUID
     ): ResponseEntity<Void> {
@@ -70,6 +82,7 @@ class WorkerController(
         summary = "근로자 상세 조회",
         description = "현재 시급 및 시급 이력을 포함한 근로자의 상세 정보를 조회합니다"
     )
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#id)")
     fun getWorkerDetail(
         @Parameter(description = "근로자 ID") @PathVariable id: UUID
     ): ResponseEntity<WorkerDetailResponse> {
@@ -98,6 +111,7 @@ class WorkerController(
         summary = "알바생 초대 코드 생성",
         description = "알바생 계정 연결을 위한 초대 코드를 생성합니다 (24시간 유효)"
     )
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#id)")
     fun generateInviteCode(
         @Parameter(description = "근로자 ID") @PathVariable id: UUID
     ): ResponseEntity<InviteCodeResponse> {
@@ -110,6 +124,7 @@ class WorkerController(
         summary = "알바생 퇴사 처리",
         description = "알바생을 퇴사 처리합니다. Worker 상태를 INACTIVE로 변경하고 현재 시급 계약을 종료합니다."
     )
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#id)")
     fun resignWorker(
         @Parameter(description = "근로자 ID") @PathVariable id: UUID,
         @Parameter(description = "퇴사일 (형식: YYYY-MM-DD)")
@@ -119,3 +134,4 @@ class WorkerController(
         return ResponseEntity.ok(response)
     }
 }
+
