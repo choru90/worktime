@@ -30,6 +30,18 @@ jobs:
       - run: python3 -m unittest discover -s deploy -p "test_*.py"
       - name: Test and package
         run: bash gradlew test bootJar --no-daemon
+      - name: Create isolated schedule test schema
+        env:
+          MYSQL_TEST_CONTAINER: ${{ job.services.mysql.id }}
+        run: |
+          docker exec -i "$MYSQL_TEST_CONTAINER" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -u root' <<'SQL'
+          CREATE DATABASE worktime_schedule_test;
+          GRANT ALL ON worktime_schedule_test.* TO 'worktime'@'%';
+          SQL
+      - name: MySQL schedule concurrency acceptance
+        env:
+          WORKTIME_SCHEDULE_TEST_URL: jdbc:mysql://127.0.0.1:3306/worktime_schedule_test?serverTimezone=UTC
+        run: bash gradlew test --tests com.worktime.ConcurrentScheduleIntegrationTest --rerun-tasks --no-daemon
       - name: MySQL Flyway startup check
         env:
           SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/worktime
@@ -91,3 +103,4 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: bash deploy/upload.sh
+

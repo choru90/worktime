@@ -24,7 +24,7 @@ import java.util.*
  * Service implementing Schedule business logic.
  */
 @Service
-@Transactional
+@Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
 class ScheduleService(
     private val scheduleRepository: ScheduleRepository,
     private val workerRepository: WorkerRepository,
@@ -36,6 +36,7 @@ class ScheduleService(
         val worker = workerRepository.findById(request.workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: ${request.workerId}")
         
+        workerRepository.lockForWrite(worker)
         // Check for time conflicts with CONFIRMED schedules
         val overlappingSchedules = scheduleRepository.findConfirmedSchedulesOverlapping(
             worker = worker,
@@ -88,6 +89,8 @@ class ScheduleService(
     override fun updateScheduleTime(scheduleId: UUID, request: ScheduleUpdateRequest): ScheduleResponse {
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
+        workerRepository.lockForWrite(schedule.worker)
+        scheduleRepository.refreshForWrite(schedule)
 
         // 시간 유효성 검사
         if (!request.endAtUtc.isAfter(request.startAtUtc)) {
@@ -119,7 +122,17 @@ class ScheduleService(
     override fun confirmSchedule(scheduleId: UUID): ScheduleResponse {
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
+        workerRepository.lockForWrite(schedule.worker)
+        scheduleRepository.refreshForWrite(schedule)
         
+        if (schedule.status != com.worktime.domain.model.ScheduleStatus.REQUESTED_BY_WORKER &&
+            schedule.status != com.worktime.domain.model.ScheduleStatus.PROPOSED_BY_OWNER) {
+            throw InvalidScheduleStateException("Cannot confirm schedule in current state")
+        }
+        if (scheduleRepository.findConfirmedSchedulesOverlapping(schedule.worker, schedule.startAtUtc, schedule.endAtUtc)
+                .any { it.id != scheduleId }) {
+            throw ScheduleConflictException("Schedule conflicts with an existing confirmed schedule")
+        }
         try {
             schedule.confirm()
         } catch (e: IllegalArgumentException) {
@@ -145,6 +158,8 @@ class ScheduleService(
     override fun rejectSchedule(scheduleId: UUID): ScheduleResponse {
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
+        workerRepository.lockForWrite(schedule.worker)
+        scheduleRepository.refreshForWrite(schedule)
         
         try {
             schedule.reject()
@@ -171,6 +186,8 @@ class ScheduleService(
     override fun cancelSchedule(scheduleId: UUID): ScheduleResponse {
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
+        workerRepository.lockForWrite(schedule.worker)
+        scheduleRepository.refreshForWrite(schedule)
         
         try {
             schedule.cancel()
@@ -258,6 +275,12 @@ class ScheduleService(
         month: Int,
         regularShifts: List<com.worktime.domain.model.RegularShift>
     ): List<ScheduleResponse> {
+        // Lock every worker once in a stable order before creating confirmed schedules.
+        regularShifts.map { it.worker }.distinctBy { it.id }.sortedBy { it.id.toString() }
+            .forEach { worker ->
+                workerRepository.lockForWrite(workerRepository.findById(worker.id)
+                    ?: throw ResourceNotFoundException("Worker not found"))
+            }
         val startDate = java.time.LocalDate.of(year, month, 1)
         val endDate = startDate.plusMonths(1).minusDays(1)
         
@@ -312,3 +335,4 @@ class ScheduleService(
         return createdSchedules.map { ScheduleResponse.from(it) }
     }
 }
+
