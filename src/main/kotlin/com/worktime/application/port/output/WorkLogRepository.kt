@@ -9,6 +9,9 @@ import java.util.*
  * WorkLog Repository interface (Output Port)
  */
 interface WorkLogRepository {
+    fun refreshForWrite(log: WorkLog)
+    fun hasOverlap(worker: Worker, exclude: UUID, start: OffsetDateTime, end: OffsetDateTime): Boolean
+
     
     fun save(workLog: WorkLog): WorkLog
 
@@ -85,3 +88,4 @@ interface WorkLogRepository {
         endTime: OffsetDateTime
     ): List<WorkLog>
 }
+

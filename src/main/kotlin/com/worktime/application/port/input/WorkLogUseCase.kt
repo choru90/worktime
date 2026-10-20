@@ -12,6 +12,8 @@ import java.util.*
  * WorkLog UseCase interface (Input Port)
  */
 interface WorkLogUseCase {
+    fun correctWorkLog(workerId: UUID, id: UUID, request: com.worktime.adapter.input.web.dto.worklog.CorrectWorkLogRequest): WorkLogResponse
+
     
     /**
      * 근로자 출근
@@ -68,4 +70,5 @@ interface WorkLogUseCase {
      */
     fun getCurrentOngoingWorkLog(workerId: UUID): WorkLogResponse?
 }
+
 

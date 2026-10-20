@@ -71,6 +71,10 @@ class WorkerWorkLogController(
         return ResponseEntity.ok(workLogs)
     }
     
+    @PostMapping("/{id}/corrections")
+    fun correct(@PathVariable id: UUID,@Valid @RequestBody body: com.worktime.adapter.input.web.dto.worklog.CorrectWorkLogRequest): ResponseEntity<WorkLogResponse> =
+        ResponseEntity.ok(workLogUseCase.correctWorkLog(getCurrentWorkerId(),id,body))
+
     @GetMapping("/current")
     @Operation(summary = "현재 진행중인 근무 조회", description = "현재 출근 상태인 근무 기록을 조회합니다")
     fun getCurrentWorkLog(): ResponseEntity<WorkLogResponse?> {
@@ -120,3 +124,4 @@ class WorkerWorkLogController(
         return ResponseEntity.ok(response)
     }
 }
+

@@ -30,6 +30,27 @@ class WorkLogService(
     private val workerRepository: WorkerRepository,
     private val scheduleRepository: ScheduleRepository
 ) : WorkLogUseCase {
+    private fun lockLog(id: UUID): WorkLog {
+        val log=workLogRepository.findById(id) ?: throw ResourceNotFoundException("Resource not found")
+        workerRepository.lockForWrite(log.worker)
+        workLogRepository.refreshForWrite(log)
+        return log
+    }
+    @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    override fun correctWorkLog(workerId: UUID,id: UUID,request: com.worktime.adapter.input.web.dto.worklog.CorrectWorkLogRequest): WorkLogResponse {
+        val initial=workLogRepository.findById(id) ?: throw ResourceNotFoundException("Resource not found")
+        if(initial.worker.id!=workerId) throw ResourceNotFoundException("Resource not found")
+        val log=lockLog(id)
+        if(log.correctionCount!=request.expectedCorrectionCount || log.status!=request.expectedStatus) throw WorkLogConflictException("기록이 변경되었습니다. 다시 조회해주세요.")
+        if(log.status !in listOf(WorkLogStatus.ONGOING,WorkLogStatus.COMPLETED,WorkLogStatus.REJECTED)) throw InvalidWorkLogStateException("승인된 기록은 정정할 수 없습니다")
+        if(!request.clockOutAt.isAfter(request.clockInAt) || request.clockOutAt.isAfter(OffsetDateTime.now())) throw InvalidWorkLogStateException("퇴근은 출근 이후이며 미래 시간이 아니어야 합니다")
+        if(workLogRepository.hasOverlap(log.worker,id,request.clockInAt,request.clockOutAt)) throw WorkLogConflictException("다른 근무 기록과 시간이 겹칩니다")
+        log.corrections.add(com.worktime.domain.model.WorkLogCorrection(workLog=log,previousIn=log.clockInAt,previousOut=log.clockOutAt,previousStatus=log.status,requestedIn=request.clockInAt,requestedOut=request.clockOutAt,reason=request.reason.trim(),previousRejectionReason=log.rejectionReason,revision=log.correctionCount+1))
+        log.clockInAt=request.clockInAt;log.clockOutAt=request.clockOutAt;log.status=WorkLogStatus.COMPLETED
+        log.rejectionReason=null;log.correctionCount++;log.correctionReason=request.reason.trim()
+        return WorkLogResponse.from(workLogRepository.save(log))
+    }
+
     
     @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun clockIn(workerId: UUID, request: ClockInRequest): WorkLogResponse {
@@ -227,9 +248,9 @@ class WorkLogService(
         return filteredLogList.sortedByDescending { it.clockInAt }
     }
     
+    @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun confirmWorkLog(workLogId: UUID): WorkLogResponse {
-        val workLog = workLogRepository.findById(workLogId)
-            ?: throw ResourceNotFoundException("WorkLog not found with id: $workLogId")
+        val workLog = lockLog(workLogId)
         
         try {
             workLog.confirm()
@@ -241,12 +262,13 @@ class WorkLogService(
         return WorkLogResponse.from(savedWorkLog)
     }
     
+    @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     override fun rejectWorkLog(workLogId: UUID, reason: String?): WorkLogResponse {
-        val workLog = workLogRepository.findById(workLogId)
-            ?: throw ResourceNotFoundException("WorkLog not found with id: $workLogId")
+        val workLog = lockLog(workLogId)
         
         try {
             workLog.reject()
+            workLog.rejectionReason = reason?.trim()?.take(500)
         } catch (e: IllegalArgumentException) {
             throw InvalidWorkLogStateException(e.message ?: "Cannot reject work log in current state")
         }
@@ -263,4 +285,5 @@ class WorkLogService(
         return workLog?.let { WorkLogResponse.from(it) }
     }
 }
+
 

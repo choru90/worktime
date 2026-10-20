@@ -12,8 +12,12 @@ import java.util.*
  */
 @Component
 class WorkLogRepositoryAdapter(
-    private val workLogJpaRepository: WorkLogJpaRepository
+    private val workLogJpaRepository: WorkLogJpaRepository,
+    private val em: jakarta.persistence.EntityManager
 ) : WorkLogRepository {
+    override fun refreshForWrite(log: WorkLog) { em.refresh(log,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE) }
+    override fun hasOverlap(worker: Worker,exclude: UUID,start: OffsetDateTime,end: OffsetDateTime): Boolean = workLogJpaRepository.overlapCount(worker,exclude,start,end)>0
+
 
     override fun findConfirmedWorkLogsInRange(worker: Worker, startTime: OffsetDateTime, endTime: OffsetDateTime): List<WorkLog> =
         workLogJpaRepository.findConfirmedWorkLogsInRange(worker, startTime, endTime)
@@ -89,3 +93,4 @@ class WorkLogRepositoryAdapter(
         return workLogJpaRepository.findCompletedByOwnerAndRange(ownerId, startTime, endTime)
     }
 }
+

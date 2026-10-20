@@ -41,7 +41,7 @@ jobs:
       - name: MySQL schedule concurrency acceptance
         env:
           WORKTIME_SCHEDULE_TEST_URL: jdbc:mysql://127.0.0.1:3306/worktime_schedule_test?serverTimezone=UTC
-        run: bash gradlew test --tests com.worktime.ConcurrentScheduleIntegrationTest --rerun-tasks --no-daemon
+        run: bash gradlew test --tests com.worktime.ConcurrentScheduleIntegrationTest --tests com.worktime.WorkLogCorrectionIntegrationTest --rerun-tasks --no-daemon
       - name: MySQL Flyway startup check
         env:
           SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/worktime
