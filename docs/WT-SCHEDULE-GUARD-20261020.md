@@ -1,4 +1,4 @@
-# WT-SCHEDULE-GUARD-20261020 · v1 · verification
+# WT-SCHEDULE-GUARD-20261020 · v1 · pending_acceptance
 
 ## 지시와 범위
 2026-10-20 11:26 Asia/Seoul 사용자 “승인 하고 다음으로 넘어가줘”. 직원 앱 PR3 결과를 수용하여 e6dc331 head를 app main d6ab854에 일반 merge했다. 다음 단계로 일정 수락 충돌·동시성을 점검한다. 안녕 PR20도 같은 지시로 병합됐으며 실제 PostgreSQL 검증은 별도 저장소에서 관리한다.
@@ -7,7 +7,7 @@
 
 ## 검증 계획/진행
 신규 통합6개: 겹치는 두 제안 동시 수락 한 건만 확정, 동일 제안 중복 수락, 기존 확정과 충돌 시 pending 유지, 인접 구간 허용, 긴 일정 포함 관계, 확정 일정 수정 충돌 시 기존 시각 유지.
-로컬은 H2이고 GitHub Actions의 실제 MySQL8.0 격리 전용 worktime_schedule_test DB에서도 같은6개를 실행한다. 전용 테스트 URL·DB명·계정을 고정하며 운영 DB에 create-drop하지 않는다. 전체 기존 테스트와 Flyway startup 검사는 유지한다. 현재 결과가 나오기 전에는 통과로 표시하지 않는다.
+로컬은 H2이고 GitHub Actions의 실제 MySQL8.0 격리 전용 worktime_schedule_test DB에서도 같은6개를 실행한다. 전용 테스트 URL·DB명·계정을 고정하며 운영 DB에 create-drop하지 않는다. 전체 기존 테스트와 Flyway startup 검사는 유지한다. 로컬 결과: 전체89개 중83개 성공·실패0·기존 opt-in MySQL migration6개 생략. 신규 일정 통합6개는 모두 성공. bootJar도 통과했다. 실제 MySQL8.0 전용 worktime_schedule_test의 신규 일정 통합6개도 성공했다. 근거: https://github.com/choru90/worktime/actions/runs/39360411984 (ci job118425031845), MySQL schedule concurrency acceptance 단계 success. 검증한 코드 head9f2e646471a0d697b8d95369757031685b97a055. 이 후속 보고 커밋은 Markdown만 변경하며 검증한 소스는 동일하다. 동일 run의 전체 CI, 기존 MySQL/Flyway startup, 이미지 빌드도 success. deploy job은 branch/PR 조건에 따라 skipped이며 실제 배포하지 않았다.
 
 테스트 환경의 동적 Java agent attach 제한을 피하기 위해 subclass Mockito mock maker를 사용한다. 테스트를 생략하거나 동시성 검증을 mock으로 대체하지 않는다.
 
