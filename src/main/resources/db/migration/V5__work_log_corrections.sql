@@ -1,6 +1,5 @@
 ALTER TABLE work_logs ADD COLUMN correction_count INT NOT NULL DEFAULT 0;
 ALTER TABLE work_logs ADD COLUMN correction_reason VARCHAR(500) NULL;
-ALTER TABLE work_logs ADD COLUMN rejection_reason VARCHAR(500) NULL;
 CREATE TABLE work_log_corrections (
  id BINARY(16) NOT NULL PRIMARY KEY,
  work_log_id BINARY(16) NOT NULL,
