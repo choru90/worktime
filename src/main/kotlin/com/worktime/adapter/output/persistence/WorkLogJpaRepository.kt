@@ -16,6 +16,9 @@ import java.util.*
  */
 @Repository
 interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
+    @Query("select count(w) from WorkLog w where w.worker=:worker and w.id<>:exclude and w.status not in ('REJECTED','NO_SHOW') and w.clockInAt<:end and (w.clockOutAt is null or w.clockOutAt>:start)")
+    fun overlapCount(@Param("worker") worker: Worker,@Param("exclude") exclude: UUID,@Param("start") start: OffsetDateTime,@Param("end") end: OffsetDateTime): Long
+
 
     @Query("""
         SELECT wl FROM WorkLog wl WHERE wl.worker = :worker
@@ -183,3 +186,4 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         @Param("endTime") endTime: OffsetDateTime
     ): List<WorkLog>
 }
+

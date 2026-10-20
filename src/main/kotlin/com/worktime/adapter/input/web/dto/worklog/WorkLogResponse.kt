@@ -18,7 +18,8 @@ data class WorkLogResponse(
     val status: WorkLogStatus,
     val durationMinutes: Long?,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val correctionCount: Int = 0, val correctionReason: String? = null, val rejectionReason: String? = null
 ) {
     companion object {
         fun from(workLog: WorkLog): WorkLogResponse {
@@ -33,8 +34,9 @@ data class WorkLogResponse(
                 status = workLog.status,
                 durationMinutes = duration?.toMinutes(),
                 createdAt = workLog.createdAt.toString(),
-                updatedAt = workLog.updatedAt.toString()
+                updatedAt = workLog.updatedAt.toString(), correctionCount = workLog.correctionCount, correctionReason = workLog.correctionReason, rejectionReason = workLog.rejectionReason
             )
         }
     }
 }
+

@@ -12,6 +12,8 @@ import java.util.*
  * WorkLog UseCase interface (Input Port)
  */
 interface WorkLogUseCase {
+    fun correctWorkLog(workerId: UUID, id: UUID, request: com.worktime.adapter.input.web.dto.worklog.CorrectWorkLogRequest): WorkLogResponse
+
     
     /**
      * 근로자 출근
@@ -56,16 +58,17 @@ interface WorkLogUseCase {
     /**
      * 근무 기록 확정 (OWNER가 검수 완료)
      */
-    fun confirmWorkLog(workLogId: UUID): WorkLogResponse
+    fun confirmWorkLog(workLogId: UUID, expectedCorrectionCount: Int = 0): WorkLogResponse
     
     /**
      * 근무 기록 반려 (OWNER가 거절)
      */
-    fun rejectWorkLog(workLogId: UUID, reason: String?): WorkLogResponse
+    fun rejectWorkLog(workLogId: UUID, reason: String?, expectedCorrectionCount: Int = 0): WorkLogResponse
     
     /**
      * 근로자의 현재 진행중인 근무 기록 조회
      */
     fun getCurrentOngoingWorkLog(workerId: UUID): WorkLogResponse?
 }
+
 

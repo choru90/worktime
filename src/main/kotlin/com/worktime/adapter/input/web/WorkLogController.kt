@@ -97,9 +97,10 @@ class WorkLogController(
     @Operation(summary = "근무 기록 확정", description = "근무 기록을 확정합니다 (OWNER 전용)")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('OWNER') and @worktimeAccess.log(#workLogId)")
     fun confirmWorkLog(
-        @PathVariable workLogId: UUID
+        @PathVariable workLogId: UUID,
+        @Valid @RequestBody(required=false) request: com.worktime.adapter.input.web.dto.worklog.WorkLogReviewRequest?
     ): ResponseEntity<WorkLogResponse> {
-        val response = workLogUseCase.confirmWorkLog(workLogId)
+        val response = workLogUseCase.confirmWorkLog(workLogId,request?.expectedCorrectionCount ?: 0)
         return ResponseEntity.ok(response)
     }
     
@@ -110,7 +111,8 @@ class WorkLogController(
         @PathVariable workLogId: UUID,
         @Valid @RequestBody(required = false) request: com.worktime.adapter.input.web.dto.worklog.WorkLogRejectRequest?
     ): ResponseEntity<WorkLogResponse> {
-        val response = workLogUseCase.rejectWorkLog(workLogId, request?.reason)
+        val response = workLogUseCase.rejectWorkLog(workLogId, request?.reason,request?.expectedCorrectionCount ?: 0)
         return ResponseEntity.ok(response)
     }
 }
+

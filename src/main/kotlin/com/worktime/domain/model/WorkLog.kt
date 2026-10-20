@@ -62,6 +62,12 @@ class WorkLog(
     @Column(nullable = false, length = 30)
     var status: WorkLogStatus = WorkLogStatus.ONGOING
 ) : BaseEntity() {
+    @Column(nullable=false) var correctionCount: Int = 0
+    @Column(length=500) var rejectionReason: String? = null
+    @Column(length=500) var correctionReason: String? = null
+    @OneToMany(mappedBy="workLog",cascade=[CascadeType.PERSIST,CascadeType.MERGE])
+    val corrections: MutableList<WorkLogCorrection> = mutableListOf()
+
     
     /**
      * 근로자를 퇴근 처리합니다
@@ -144,3 +150,4 @@ class WorkLog(
         return "WorkLog(id=$id, clockInAt=$clockInAt, clockOutAt=$clockOutAt, status=$status)"
     }
 }
+
