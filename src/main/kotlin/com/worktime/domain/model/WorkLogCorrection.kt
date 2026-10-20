@@ -9,7 +9,7 @@ class WorkLogCorrection(
  @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="work_log_id",nullable=false) val workLog: WorkLog,
  @Column(nullable=false) val previousIn: OffsetDateTime,
  val previousOut: OffsetDateTime?,
- @Enumerated(EnumType.STRING) @Column(nullable=false,length=30) val previousStatus: WorkLogStatus,
+ @Enumerated(EnumType.STRING) @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR) @Column(nullable=false,length=30) val previousStatus: WorkLogStatus,
  @Column(nullable=false) val requestedIn: OffsetDateTime,
  @Column(nullable=false) val requestedOut: OffsetDateTime,
  @Column(nullable=false,length=500) val reason: String,
