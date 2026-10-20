@@ -13,9 +13,14 @@ import java.util.*
  */
 @Component
 class ScheduleRepositoryAdapter(
-    private val scheduleJpaRepository: ScheduleJpaRepository
+    private val scheduleJpaRepository: ScheduleJpaRepository,
+    private val entityManager: jakarta.persistence.EntityManager
 ) : ScheduleRepository {
     
+    override fun refreshForWrite(schedule: Schedule) {
+        entityManager.refresh(schedule, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    }
+
     override fun save(schedule: Schedule): Schedule {
         return scheduleJpaRepository.save(schedule)
     }
@@ -53,16 +58,7 @@ class ScheduleRepositoryAdapter(
         startTime: OffsetDateTime,
         endTime: OffsetDateTime
     ): List<Schedule> {
-        // Find CONFIRMED schedules that overlap with the given time range
-        return scheduleJpaRepository.findByWorkerAndStatusAndTimeRange(
-            worker = worker,
-            status = ScheduleStatus.CONFIRMED,
-            startTime = startTime.minusDays(1), // Expand search range to catch overlaps
-            endTime = endTime.plusDays(1)
-        ).filter { schedule ->
-            // Check if the schedules actually overlap
-            !(schedule.endAtUtc.isBefore(startTime) || schedule.startAtUtc.isAfter(endTime))
-        }
+        return scheduleJpaRepository.findConfirmedOverlapping(worker, startTime, endTime)
     }
 
     override fun countByOwnerAndTimeRangeExcludingCanceledAndRejected(
@@ -90,3 +86,4 @@ class ScheduleRepositoryAdapter(
         return scheduleJpaRepository.findByOwnerAndTimeRange(ownerId, startTime, endTime)
     }
 }
+

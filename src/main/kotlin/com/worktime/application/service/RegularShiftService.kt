@@ -28,7 +28,7 @@ class RegularShiftService(
     /**
      * 고정근무 생성 → 자동으로 이번 달 + 다음 달 스케줄 생성
      */
-    @Transactional
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     fun createRegularShift(
         storeId: UUID,
         workerId: UUID,
@@ -193,3 +193,4 @@ class RegularShiftService(
         return regularShiftRepository.save(shift)
     }
 }
+

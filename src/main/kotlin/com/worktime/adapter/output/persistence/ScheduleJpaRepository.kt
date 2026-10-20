@@ -16,6 +16,13 @@ import java.util.*
 @Repository
 interface ScheduleJpaRepository : JpaRepository<Schedule, UUID> {
     
+    /** Half-open intervals: adjacent shifts do not overlap; containing multi-day shifts do. */
+    @Query("""SELECT s FROM Schedule s WHERE s.worker = :worker AND s.status = 'CONFIRMED'
+        AND s.startAtUtc < :endTime AND s.endAtUtc > :startTime""")
+    fun findConfirmedOverlapping(@Param("worker") worker: Worker,
+        @Param("startTime") startTime: OffsetDateTime,
+        @Param("endTime") endTime: OffsetDateTime): List<Schedule>
+
     /**
      * Find all schedules for a worker
      */
@@ -155,3 +162,4 @@ interface ScheduleJpaRepository : JpaRepository<Schedule, UUID> {
     @Query("SELECT s FROM Schedule s WHERE s.id IN :ids")
     fun findAllByIds(@Param("ids") ids: List<UUID>): List<Schedule>
 }
+

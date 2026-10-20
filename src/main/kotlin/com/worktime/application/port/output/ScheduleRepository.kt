@@ -11,6 +11,9 @@ import java.util.*
  */
 interface ScheduleRepository {
     
+    /** Refresh state after acquiring the worker lock, within the same transaction. */
+    fun refreshForWrite(schedule: Schedule) {}
+
     fun save(schedule: Schedule): Schedule
     
     fun findById(id: UUID): Schedule?
@@ -82,3 +85,4 @@ interface ScheduleRepository {
         endTime: OffsetDateTime
     ): List<Schedule>
 }
+
