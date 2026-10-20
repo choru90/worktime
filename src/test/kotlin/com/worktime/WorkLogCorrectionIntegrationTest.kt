@@ -41,7 +41,7 @@ class WorkLogCorrectionIntegrationTest {
   val f=fixture();assertEquals(200,correct(f).status)
   tx.execute {val log=em.find(WorkLog::class.java,f.id);assertEquals(WorkLogStatus.COMPLETED,log.status);assertEquals(1,log.correctionCount);assertNull(log.corrections.single().previousOut)}
   assertEquals(409,correct(f).status)
-  assertEquals(200,mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner)).andReturn().response.status)
+  assertEquals(200,mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner).contentType(MediaType.APPLICATION_JSON).content("""{"expectedCorrectionCount":1}""")).andReturn().response.status)
   assertEquals(400,correct(f,WorkLogStatus.CONFIRMED,1).status)
  }
  @Test fun `rejected record can resubmit but foreign worker and owner cannot correct`() {
@@ -64,7 +64,9 @@ class WorkLogCorrectionIntegrationTest {
   try{
    val edit=pool.submit<Int>{gate.await();correct(f,WorkLogStatus.COMPLETED).status}
    val approve=pool.submit<Int>{gate.await();mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner)).andReturn().response.status}
-   gate.countDown();assertEquals(200,approve.get(20,TimeUnit.SECONDS));assertTrue(edit.get(20,TimeUnit.SECONDS) in listOf(200,409))
+   gate.countDown();val reviewed=approve.get(20,TimeUnit.SECONDS);val edited=edit.get(20,TimeUnit.SECONDS)
+   assertEquals(listOf(200,409),listOf(reviewed,edited).sorted())
+   if(edited==200)assertEquals(200,mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner).contentType(MediaType.APPLICATION_JSON).content("""{"expectedCorrectionCount":1}""")).andReturn().response.status)
    val before=tx.execute{em.find(WorkLog::class.java,f.id).clockOutAt}
    assertEquals(409,correct(f,WorkLogStatus.COMPLETED).status)
    tx.execute{assertEquals(before,em.find(WorkLog::class.java,f.id).clockOutAt)}

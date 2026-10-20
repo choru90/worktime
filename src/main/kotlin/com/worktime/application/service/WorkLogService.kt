@@ -249,8 +249,9 @@ class WorkLogService(
     }
     
     @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
-    override fun confirmWorkLog(workLogId: UUID): WorkLogResponse {
+    override fun confirmWorkLog(workLogId: UUID, expectedCorrectionCount: Int): WorkLogResponse {
         val workLog = lockLog(workLogId)
+        if(workLog.correctionCount!=expectedCorrectionCount)throw WorkLogConflictException("정정된 기록입니다. 다시 조회한 후 검토해주세요.")
         
         try {
             workLog.confirm()
@@ -263,8 +264,9 @@ class WorkLogService(
     }
     
     @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
-    override fun rejectWorkLog(workLogId: UUID, reason: String?): WorkLogResponse {
+    override fun rejectWorkLog(workLogId: UUID, reason: String?, expectedCorrectionCount: Int): WorkLogResponse {
         val workLog = lockLog(workLogId)
+        if(workLog.correctionCount!=expectedCorrectionCount)throw WorkLogConflictException("정정된 기록입니다. 다시 조회한 후 검토해주세요.")
         
         try {
             workLog.reject()

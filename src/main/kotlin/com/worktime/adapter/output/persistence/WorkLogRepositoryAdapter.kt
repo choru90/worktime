@@ -15,7 +15,7 @@ class WorkLogRepositoryAdapter(
     private val workLogJpaRepository: WorkLogJpaRepository,
     private val em: jakarta.persistence.EntityManager
 ) : WorkLogRepository {
-    override fun refreshForWrite(log: WorkLog) { em.refresh(log,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE) }
+    override fun refreshForWrite(log: WorkLog) { em.flush(); em.refresh(log,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE) }
     override fun hasOverlap(worker: Worker,exclude: UUID,start: OffsetDateTime,end: OffsetDateTime): Boolean = workLogJpaRepository.overlapCount(worker,exclude,start,end)>0
 
 

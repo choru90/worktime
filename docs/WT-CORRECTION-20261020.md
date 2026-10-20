@@ -1,6 +1,6 @@
 # WT-CORRECTION-20261020
 
-사용자가 승인한 운영 예외 처리 보완. 본인 ONGOING/COMPLETED/REJECTED 기록의 실제 출퇴근 시간과 사유를 제출하면 COMPLETED(사장 확인 대기)로 돌아간다. CONFIRMED 급여 기록은 수정하지 않는다. 기존 승인/반려 API를 유지한다.
+사용자가 승인한 운영 예외 처리 보완. 본인 ONGOING/COMPLETED/REJECTED 기록의 실제 출퇴근 시간과 사유를 제출하면 COMPLETED(사장 확인 대기)로 돌아간다. CONFIRMED 급여 기록은 수정하지 않는다. 기존 승인/반려 API에 expectedCorrectionCount를 추가하여 오래된 화면의 승인/반려를409로 거절한다. 정정 전 기록의 생략 기본값0은 호환 유지한다. 사장 웹 업데이트가 함께 필요하다.
 
 - POST /api/worklogs/my/{id}/corrections: clockInAt,clockOutAt,reason(1~500),expectedCorrectionCount,expectedStatus.
 - 본인 소유권 404, WORKER 역할, 종료>시작 및 미래 퇴근 거절, 다른 진행/완료/승인 기록과 겹침 거절. 현재 상태/정정 횟수가 바뀌면 409.

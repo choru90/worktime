@@ -9,6 +9,9 @@ import io.swagger.v3.oas.annotations.media.Schema
 data class WorkLogRejectRequest(
     @Schema(description = "반려 사유", example = "출근 시간이 맞지 않음")
     @field:jakarta.validation.constraints.Size(max=500)
-    val reason: String?
+    val reason: String?,
+    @field:jakarta.validation.constraints.Min(0) val expectedCorrectionCount: Int = 0
 )
 
+
+data class WorkLogReviewRequest(@field:jakarta.validation.constraints.Min(0) val expectedCorrectionCount: Int = 0)
