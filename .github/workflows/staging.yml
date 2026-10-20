@@ -56,10 +56,10 @@ jobs:
           ready=false
           for i in $(seq 1 60); do
             if curl --fail --silent http://127.0.0.1:8080/actuator/health > /dev/null; then ready=true; break; fi
-            if ! kill -0 "$app_pid" 2>/dev/null; then exit 1; fi
+            if ! kill -0 "$app_pid" 2>/dev/null; then tail -n 80 startup.log; exit 1; fi
             sleep 2
           done
-          test "$ready" = true
+          if [ "$ready" != true ]; then tail -n 80 startup.log; exit 1; fi
           expected=$(python3 deploy/migrations.py --count)
           docker exec "${{ job.services.mysql.id }}" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root worktime -N -e "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1"' | grep -qx "$expected"
       - name: Build image
