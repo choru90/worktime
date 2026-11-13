@@ -50,7 +50,7 @@ def main():
             if missed_lines or missed_branches:
                 gaps.append((missed_branches, missed_lines, clazz.get("name", "?")))
     for branches, lines, name in sorted(gaps, key=lambda row: (-row[0], -row[1], row[2])):
-        output.append(f"| \`{name}\` | {branches} | {lines} |")
+        output.append(f"| `{name}` | {branches} | {lines} |")
     output += ["", f"**Review verdict:** {'NOT 100% — continue tests and remeasure' if incomplete else '100% LINE and BRANCH'}",
                f"**Remaining classes:** {len(gaps)}", ""]
     report = "\n".join(output)
