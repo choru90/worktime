@@ -105,4 +105,10 @@ jobs:
           old=[p for p in paths if p.read_text().strip() in EXPECTED_V4]
           new=[p for p in paths if p.read_text().strip()==EXPECTED_V5]
           print(json.dumps({"recognized_migration_approval_files":len(paths),"v4_approval_files":len(old),"v5_approval_files":len(new),"runtime_credentials_exported":False}))
+          parents={child:parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+          parent=parents.get(gate)
+          while parent is not None and not isinstance(parent,ast.If):parent=parents.get(parent)
+          condition=parent.test if parent is not None else gate
+          fields=sorted({n.value for n in ast.walk(condition) if isinstance(n,ast.Constant) and isinstance(n.value,str) and ("migration" in n.value.lower() or "approv" in n.value.lower()) and len(n.value)<80})
+          print(json.dumps({"approval_condition_fields":fields,"approval_condition_uses_file_read":any(isinstance(n,ast.Attribute) and n.attr=="read_text" for n in ast.walk(condition)),"approval_condition_uses_json_field":any(isinstance(n,ast.Subscript) for n in ast.walk(condition))}))
           PY
