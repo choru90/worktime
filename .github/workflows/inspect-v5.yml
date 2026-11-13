@@ -1,7 +1,7 @@
 name: Inspect Worktime V5 release prerequisites
 on:
   push:
-    branches: [codex/worktime-v5-release]
+    branches: [main]
     paths: [.github/workflows/inspect-v5.yml]
 permissions:
   contents: read
