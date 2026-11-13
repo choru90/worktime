@@ -60,16 +60,17 @@ jobs:
                   print(json.dumps({"precheck_failure_category":category,"command_stage":"compose_config" if "config" in args else "database_query","exit_code":p.returncode}))
                   raise RuntimeError("server precheck command failed; output suppressed")
               return p.stdout
-          cfg = json.loads(run(["docker", "compose", "-f", str(root / "compose.yml"), "config", "--format", "json"]))
-          services = cfg["services"]
-          mysql = [name for name,s in services.items() if "mysql" in s.get("image","").lower()]
-          if len(mysql) != 1: raise RuntimeError("expected exactly one MySQL service")
-          name=mysql[0]
+          ids=run(["docker","ps","--format","{{.ID}}"]).split()
+          if not ids: raise RuntimeError("no running containers")
+          containers=json.loads(run(["docker","inspect"]+ids))
+          mysql=[s for s in containers if "mysql" in s.get("Config",{}).get("Image","").lower() and (s.get("Config",{}).get("Labels",{}).get("com.docker.compose.project.working_dir")==str(root) or s.get("Config",{}).get("Labels",{}).get("com.docker.compose.service")=="mysql")]
+          if len(mysql)!=1: raise RuntimeError("expected exactly one Worktime MySQL container")
+          db_id=mysql[0]["Id"]
           sql = """SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;
           SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='work_logs' AND COLUMN_NAME IN ('correction_count','correction_reason');
           SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='work_log_corrections';"""
           cmd = 'set -eu; if [ -n "${MYSQL_ROOT_PASSWORD_FILE:-}" ]; then export MYSQL_PWD="$(cat "$MYSQL_ROOT_PASSWORD_FILE")"; else export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; fi; exec mysql -u root --batch --skip-column-names "$MYSQL_DATABASE"'
-          out=run(["docker","compose","-f",str(root/"compose.yml"),"exec","-T",name,"sh","-c",cmd],sql)
+          out=run(["docker","exec","-i",db_id,"sh","-c",cmd],sql)
           lines=out.strip().splitlines()
           print(json.dumps({"flyway_versions":[line.split("\t") for line in lines[:-2]],"v5_columns":int(lines[-2]),"v5_table":int(lines[-1]),"runtime_credentials_exported":False}))
           
