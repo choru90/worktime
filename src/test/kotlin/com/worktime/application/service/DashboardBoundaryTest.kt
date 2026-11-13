@@ -76,4 +76,16 @@ class DashboardBoundaryTest {
         assertEquals(7L,top.range.days);assertTrue(top.items.isEmpty())
         assertEquals(LocalDate.now(ZoneId.of("Asia/Seoul")),top.range.to)
     }
+
+    @Test fun `completed shift ranking prioritizes count over alphabetical worker name`() {
+        val a=worker("Alpha");val z=worker("Zulu")
+        val workLogs=listOf(WorkLog(worker=a,clockInAt=start,clockOutAt=start.plusHours(1),status=WorkLogStatus.COMPLETED),
+            WorkLog(worker=z,clockInAt=start,clockOutAt=start.plusHours(1),status=WorkLogStatus.COMPLETED),
+            WorkLog(worker=z,clockInAt=start.plusDays(1),clockOutAt=start.plusDays(1).plusHours(1),status=WorkLogStatus.COMPLETED))
+        whenever(logs.findCompletedWorkLogsByOwnerAndTimeRange(eq(owner.id),any(),any())).thenReturn(workLogs)
+        val result=service.getTopWorkers(owner.id,day,day.plusDays(1),5,TopWorkerSort.SHIFTS_DESC)
+        assertEquals(listOf("Zulu","Alpha"),result.items.map { it.worker.name })
+        assertEquals(listOf(2,1),result.items.map { it.stats.completedShifts });assertEquals(listOf(1,2),result.items.map { it.rank })
+        assertEquals(listOf(120L,60L),result.items.map { it.stats.totalWorkMinutes })
+    }
 }

@@ -140,4 +140,16 @@ class ScheduleBoundaryTest {
         assertEquals(ScheduleStatus.REJECTED,service.rejectSchedule(target.id).status)
         verifyNoInteractions(notifications)
     }
+
+    @Test fun `monthly generation locks distinct workers in UUID order independent of shift input order`() {
+        val a=Worker(id=UUID(0,1),name="First",phoneNumber="001",owner=owner)
+        val z=Worker(id=UUID(0,2),name="Second",phoneNumber="002",owner=owner)
+        whenever(workers.findById(a.id)).thenReturn(a);whenever(workers.findById(z.id)).thenReturn(z)
+        whenever(schedules.save(any())).thenAnswer { it.arguments[0] as Schedule }
+        val store=Store(owner=owner,name="Cafe")
+        fun shift(worker: Worker)=RegularShift(store=store,worker=worker,dayOfWeek=DayOfWeek.MONDAY,startTime=LocalTime.of(9,0),endTime=LocalTime.of(10,0))
+        val result=service.generateMonthlySchedules(store.id,2024,2,listOf(shift(z),shift(a)))
+        assertEquals(8,result.size);assertEquals(mapOf(a.id to 4,z.id to 4),result.groupingBy { it.workerId }.eachCount())
+        inOrder(workers) { verify(workers).lockForWrite(a);verify(workers).lockForWrite(z) }
+    }
 }

@@ -21,7 +21,10 @@ class WorktimeAccessTest {
     private val owners = mock<OwnerRepository>()
     private val logs = mock<WorkLogRepository>()
     private val schedules = mock<ScheduleRepository>()
-    private val access = WorktimeAccess(workers, owners, logs, schedules, mock(), mock(), mock())
+    private val stores=mock<com.worktime.adapter.output.persistence.StoreJpaRepository>()
+    private val shifts=mock<com.worktime.adapter.output.persistence.RegularShiftJpaRepository>()
+    private val contracts=mock<WageContractRepository>()
+    private val access = WorktimeAccess(workers, owners, logs, schedules, stores, shifts, contracts)
     private val ownerUser = User(email="owner@test", password="pw", name="Owner", role=UserRole.OWNER)
     private val owner = Owner(user=ownerUser)
     private val account = User(email="worker@test", password="pw", name="Worker", role=UserRole.WORKER)
@@ -98,5 +101,28 @@ class WorktimeAccessTest {
                 assertThrows<ResourceNotFoundException> { access.createSchedule(worker.id,request.copy(workerId=UUID.randomUUID())) }
             }
         }
+    }
+
+    @Test fun `store and shift checks reject missing targets non-owner roles and foreign owners`() {
+        val store=Store(owner=owner,name="Cafe")
+        val shift=RegularShift(store=store,worker=worker,dayOfWeek=java.time.DayOfWeek.MONDAY,startTime=java.time.LocalTime.of(9,0),endTime=java.time.LocalTime.of(10,0))
+        whenever(stores.findById(store.id)).thenReturn(java.util.Optional.of(store))
+        whenever(shifts.findById(shift.id)).thenReturn(java.util.Optional.of(shift))
+        login(ownerUser.id,"OWNER");assertTrue(access.store(store.id));assertTrue(access.shift(shift.id))
+        assertThrows<ResourceNotFoundException> { access.store(UUID.randomUUID()) }
+        assertThrows<ResourceNotFoundException> { access.shift(UUID.randomUUID()) }
+        login(account.id,"WORKER");assertThrows<ResourceNotFoundException> { access.store(store.id) }
+        login(UUID.randomUUID(),"OWNER");assertThrows<ResourceNotFoundException> { access.store(store.id) }
+        assertThrows<ResourceNotFoundException> { access.shift(shift.id) }
+    }
+    @Test fun `contract guard binds contract identifier to permitted worker`() {
+        target();login(ownerUser.id,"OWNER")
+        val contract=WageContract(worker=worker,hourlyWage=java.math.BigDecimal.TEN,startDate=java.time.LocalDate.of(2024,1,1))
+        whenever(contracts.findById(contract.id)).thenReturn(contract)
+        assertTrue(access.contract(worker.id,contract.id))
+        assertThrows<ResourceNotFoundException> { access.contract(worker.id,UUID.randomUUID()) }
+        val foreign=WageContract(worker=Worker(name="Foreign",phoneNumber="001",owner=owner),hourlyWage=java.math.BigDecimal.TEN,startDate=java.time.LocalDate.of(2024,1,1))
+        whenever(contracts.findById(foreign.id)).thenReturn(foreign)
+        assertThrows<ResourceNotFoundException> { access.contract(worker.id,foreign.id) }
     }
 }

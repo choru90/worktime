@@ -342,6 +342,8 @@ class StoreAndNotificationIntegrationTest {
             mvc.perform(get("/api/owner/dashboard/$path").header("Authorization",token(user(UserRole.WORKER)))).andExpect(status().isForbidden)
         }
         mvc.perform(get("/api/owner/dashboard/summary").header("Authorization",token(user()))).andExpect(status().isNotFound)
+        val datedAttendance=mvc.perform(get("/api/owner/dashboard/attendance").param("date","2024-02-01").header("Authorization",authorization)).andExpect(status().isOk).andReturn().response.contentAsString
+        assertEquals("2024-02-01",json.readTree(datedAttendance)["date"].asText())
         val actions=mvc.perform(get("/api/owner/dashboard/actions").param("types","PENDING_SCHEDULE_APPROVAL").header("Authorization",authorization)).andExpect(status().isOk).andReturn().response.contentAsString
         assertEquals(0,json.readTree(actions)["items"].size())
     }
@@ -398,6 +400,8 @@ class StoreAndNotificationIntegrationTest {
         val id=UUID.fromString(json.readTree(created)["id"].asText());em.flush()
         val history=mvc.perform(get("/api/workers/${worker.id}/wage-contracts").header("Authorization",authorization)).andExpect(status().isOk).andReturn().response.contentAsString
         assertEquals(id.toString(),json.readTree(history).single()["id"].asText())
+        val detail=mvc.perform(get("/api/workers/${worker.id}").header("Authorization",authorization)).andExpect(status().isOk).andReturn().response.contentAsString
+        assertEquals(id.toString(),json.readTree(detail)["currentWage"]["id"].asText())
         val wage=mvc.perform(get("/api/workers/${worker.id}/wage").param("date","2024-02-01").header("Authorization",authorization)).andExpect(status().isOk).andReturn().response.contentAsString
         assertEquals(10000,json.readTree(wage)["hourlyWage"].asInt());assertTrue(json.readTree(wage)["hasContract"].asBoolean())
         mvc.perform(patch("/api/workers/${worker.id}/wage-contracts/$id/terminate").param("endDate","2024-12-31").header("Authorization",authorization)).andExpect(status().isOk)
@@ -464,5 +468,40 @@ class StoreAndNotificationIntegrationTest {
             .content("""{"hourlyWage":20000,"startDate":"2025-01-01"}""")).andExpect(status().isForbidden)
         mvc.perform(patch("/api/workers/${worker.id}/wage-contracts/${contract.id}/terminate").param("endDate","2024-12-31").header("Authorization",token(account))).andExpect(status().isForbidden)
         em.flush();em.clear();assertNull(em.find(WageContract::class.java,contract.id).endDate)
+    }
+
+    @Test fun `default request fields and explicit owner clock review APIs preserve persisted values`() {
+        val owner=owner();val authorization=token(owner.user)
+        val created=mvc.perform(post("/api/stores").header("Authorization",authorization).contentType(MediaType.APPLICATION_JSON).content("""{"name":"Defaults"}"""))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val storeId=UUID.fromString(json.readTree(created)["id"].asText())
+        assertEquals("Asia/Seoul",json.readTree(created)["timezone"].asText());assertTrue(json.readTree(created)["address"].isNull)
+        mvc.perform(put("/api/stores/$storeId/business-hours").header("Authorization",authorization).contentType(MediaType.APPLICATION_JSON)
+            .content("""{"hours":[{"dayOfWeek":"MONDAY","openTime":"09:00","closeTime":"18:00"}]}""")).andExpect(status().isOk)
+        val monday=hours.getDayHours(storeId,DayOfWeek.MONDAY)!!;assertEquals(storeId,monday.store.id);assertFalse(monday.isClosed);assertEquals(monday.id,em.find(BusinessHours::class.java,monday.id).id)
+        val worker=Worker(name="Explicit clock",phoneNumber="01012345678",owner=owner).also(em::persist);em.flush()
+        val body=mvc.perform(post("/api/workers/${worker.id}/clock-in").header("Authorization",authorization).contentType(MediaType.APPLICATION_JSON)
+            .content("""{"clockInAt":"2024-02-01T09:00:00Z"}""")).andExpect(status().isCreated).andReturn().response.contentAsString
+        val id=UUID.fromString(json.readTree(body)["id"].asText());em.flush()
+        mvc.perform(post("/api/workers/${worker.id}/clock-out").header("Authorization",authorization).contentType(MediaType.APPLICATION_JSON)
+            .content("""{"clockOutAt":"2024-02-01T10:00:00Z"}""")).andExpect(status().isOk);em.flush()
+        mvc.perform(post("/api/work-logs/$id/reject").header("Authorization",authorization).contentType(MediaType.APPLICATION_JSON)
+            .content("""{"reason":"  Incorrect time  "}""")).andExpect(status().isOk)
+        em.flush();em.clear();assertEquals(WorkLogStatus.REJECTED,em.find(WorkLog::class.java,id).status);assertEquals("Incorrect time",em.find(WorkLog::class.java,id).rejectionReason)
+        val listed=mvc.perform(get("/api/work-logs").param("workerId",worker.id.toString()).param("from","2024-02-01T00:00:00Z").param("to","2024-02-02T00:00:00Z").header("Authorization",authorization))
+            .andExpect(status().isOk).andReturn().response.contentAsString
+        assertEquals(id.toString(),json.readTree(listed).single()["id"].asText())
+    }
+    @Test fun `legacy generic signup persists signed identity and missing notification user yields not found`() {
+        val email="${UUID.randomUUID()}@test.invalid"
+        val created=mvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON)
+            .content(json.writeValueAsString(mapOf("email" to email,"password" to "password123","name" to "Legacy","role" to "WORKER"))))
+            .andExpect(status().isCreated).andReturn().response.contentAsString
+        val node=json.readTree(created);val id=UUID.fromString(node["userId"].asText())
+        assertEquals(id,jwt.getUserIdFromToken(node["accessToken"].asText()));assertEquals("WORKER",node["role"].asText())
+        em.flush();em.clear();assertEquals(email,em.find(User::class.java,id).email)
+        val absent=User(email="absent@test.invalid",password="pw",name="Absent",role=UserRole.WORKER)
+        for(path in listOf("/api/notifications","/api/notifications/unread-count"))
+            mvc.perform(get(path).header("Authorization",token(absent))).andExpect(status().isNotFound)
     }
 }

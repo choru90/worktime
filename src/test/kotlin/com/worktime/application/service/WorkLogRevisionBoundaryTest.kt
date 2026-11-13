@@ -156,4 +156,29 @@ class WorkLogRevisionBoundaryTest {
         val result=service.getAllWorkLogs(start.minusDays(2),start.plusDays(2),worker.id,null,owner.id)
         assertEquals(listOf(log.id,pending.id),result.map { it.id });assertEquals(WorkLogStatus.NO_SHOW,result.last().status)
     }
+
+    @Test fun `review input port defaults apply revision zero to current completed log`() {
+        setup();val api: com.worktime.application.port.input.WorkLogUseCase=service
+        assertEquals(WorkLogStatus.CONFIRMED,api.confirmWorkLog(log.id).status)
+        log.status=WorkLogStatus.COMPLETED
+        assertEquals(WorkLogStatus.REJECTED,api.rejectWorkLog(log.id,"reason").status)
+        assertEquals("reason",log.rejectionReason)
+    }
+
+    @Test fun `clock-out equal to clock-in fails without changing ongoing shift`() {
+        setup();log.status=WorkLogStatus.ONGOING;log.clockOutAt=null
+        whenever(logs.findCurrentOngoingWorkLog(worker)).thenReturn(log)
+        val error=assertThrows<InvalidWorkLogStateException> { service.clockOut(worker.id,ClockOutRequest(start)) }
+        assertTrue(error.message!!.contains("after clock-in"));assertEquals(WorkLogStatus.ONGOING,log.status);assertNull(log.clockOutAt)
+        verify(logs,never()).save(any())
+    }
+
+    @Test fun `listing tolerates worker repository no longer finding worker at its second lookup`() {
+        // Unit contract of the port's defensive fallback; this does not certify a JPA deletion race.
+        whenever(workers.findById(worker.id)).thenReturn(worker,null)
+        val result=service.getAllWorkLogs(start,start.plusDays(1),worker.id,null,owner.id)
+        assertTrue(result.isEmpty())
+        verify(logs).findByWorkerAndTimeRange(worker,start,start.plusDays(1))
+        verifyNoInteractions(schedules)
+    }
 }

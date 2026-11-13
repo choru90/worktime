@@ -86,4 +86,13 @@ class DomainBoundaryTest {
         log.manuallyAdjust(start.minusHours(1),null);assertEquals(WorkLogStatus.MANUAL_ADJUSTED,log.status);assertEquals(start.minusHours(1),log.clockInAt);assertNull(log.calculateDuration())
         log.manuallyAdjust(start,start.plusMinutes(45));assertEquals(Duration.ofMinutes(45),log.calculateDuration())
     }
+
+    private class AuditedEntity : BaseEntity() {
+        fun restoreAudit(created: Instant,updated: Instant) { createdAt=created;updatedAt=updated }
+    }
+    @Test fun `audit base preserves distinct creation and modification timestamps for inheriting entities`() {
+        val created=Instant.parse("2024-01-01T00:00:00Z");val modified=created.plusSeconds(3600)
+        val entity=AuditedEntity();entity.restoreAudit(created,modified)
+        assertEquals(created,entity.createdAt);assertEquals(modified,entity.updatedAt)
+    }
 }

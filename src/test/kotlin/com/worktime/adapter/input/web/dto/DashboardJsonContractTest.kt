@@ -28,4 +28,15 @@ class DashboardJsonContractTest {
         val full=minimal.copy(scheduleId=id,workLogId=id,scheduledStartAt=time,scheduledEndAt=time.plusHours(1),checkedInAt=time,checkedOutAt=time.plusMinutes(55))
         assertEquals(full,json.readValue(json.writeValueAsString(full),AttendanceExceptionDto::class.java))
     }
+
+    @Test fun `top worker JSON defaults specify Seoul timezone and absent profile picture`() {
+        val date=java.time.LocalDate.of(2024,2,1)
+        val worker=com.worktime.application.port.input.dto.WorkerInfo(id.toString(),"Worker")
+        val item=com.worktime.application.port.input.dto.TopWorkerItem(1,worker,
+            com.worktime.application.port.input.dto.WorkerStats(1,60,java.math.BigDecimal("10000")))
+        val response=com.worktime.application.port.input.dto.TopWorkersResponse(range=com.worktime.application.port.input.dto.DateRangeDto(date,date,1),items=listOf(item))
+        val node=json.readTree(json.writeValueAsString(response))
+        assertEquals("Asia/Seoul",node["timezone"].asText());assertTrue(node["items"][0]["worker"]["pictureUrl"].isNull)
+        assertEquals(10000,node["items"][0]["stats"]["accruedWage"].asInt());assertEquals(0,node["items"][0]["badges"].size())
+    }
 }
