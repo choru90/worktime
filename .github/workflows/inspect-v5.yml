@@ -31,20 +31,42 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > "$key_dir/known_hosts"
           chmod 600 "$key_dir/key" "$key_dir/known_hosts"
           ssh -i "$key_dir/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$key_dir/known_hosts" -o ConnectTimeout=15 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'python3 -' <<'PY'
-          import ast, json
+          import ast, json, subprocess
           from pathlib import Path
-          source = Path("/opt/worktime/deploy.py").read_text()
+          root = Path("/opt/worktime")
+          source = (root / "deploy.py").read_text()
           tree = ast.parse(source)
-          literals = {node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value, str)}
-          allowed = ["--reviewed-release", "--allow-migration", "--approve-migration", "--reviewed", "--approve", "--root", "--service", "--sha"]
-          flags = [flag for flag in allowed if flag in literals]
+          def callname(n):
+              if isinstance(n, ast.Name): return n.id
+              if isinstance(n, ast.Attribute): return n.attr
+              return ""
+          deploy = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "deploy")
+          gate = next(n for n in ast.walk(deploy) if isinstance(n, ast.Raise) and "migration change requires reviewed release" in ast.unparse(n))
+          calls = [(n.lineno, callname(n.func)) for n in ast.walk(deploy) if isinstance(n, ast.Call)]
           print(json.dumps({
-              "executor_parses": True,
-              "migration_gate_present": "migration change requires reviewed release" in source,
-              "reviewed_release_option_present": any(flag in flags for flag in allowed[:5]),
-              "recognized_cli_flags": flags,
-              "backup_logic_present": "backup" in source.lower(),
-              "lock_logic_present": "flock" in source or "fcntl" in source,
-              "runtime_credentials_exported": False
+            "gate_matches": sum(isinstance(n, ast.Raise) and "migration change requires reviewed release" in ast.unparse(n) for n in ast.walk(tree)),
+            "backup_called_after_gate": any(line > gate.lineno and "backup" in name.lower() for line, name in calls),
+            "activation_called_after_gate": any(line > gate.lineno and name in ("run", "check_call", "check", "up", "activate", "compose", "apply") for line, name in calls),
+            "backup_function_present": any(isinstance(n, ast.FunctionDef) and "backup" in n.name.lower() for n in ast.walk(tree)),
+            "deploy_has_sha_argument": "sha" in [a.arg for a in deploy.args.args],
+            "compose_file_present": (root / "compose.yml").is_file(),
+            "runtime_credentials_exported": False
           }))
+          def run(args, data=None):
+              p = subprocess.run(args, input=data, text=True, capture_output=True, timeout=30)
+              if p.returncode: raise RuntimeError("server precheck command failed; output suppressed")
+              return p.stdout
+          cfg = json.loads(run(["docker", "compose", "-f", str(root / "compose.yml"), "config", "--format", "json"]))
+          services = cfg["services"]
+          mysql = [name for name,s in services.items() if "mysql" in s.get("image","").lower()]
+          if len(mysql) != 1: raise RuntimeError("expected exactly one MySQL service")
+          name=mysql[0]
+          sql = """SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;
+          SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='work_logs' AND COLUMN_NAME IN ('correction_count','correction_reason');
+          SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='work_log_corrections';"""
+          cmd = 'set -eu; if [ -n "${MYSQL_ROOT_PASSWORD_FILE:-}" ]; then export MYSQL_PWD="$(cat "$MYSQL_ROOT_PASSWORD_FILE")"; else export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"; fi; exec mysql -u root --batch --skip-column-names "$MYSQL_DATABASE"'
+          out=run(["docker","compose","-f",str(root/"compose.yml"),"exec","-T",name,"sh","-c",cmd],sql)
+          lines=out.strip().splitlines()
+          print(json.dumps({"flyway_versions":[line.split("\t") for line in lines[:-2]],"v5_columns":int(lines[-2]),"v5_table":int(lines[-1]),"runtime_credentials_exported":False}))
+          
           PY
