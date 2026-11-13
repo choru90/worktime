@@ -50,7 +50,7 @@ class MysqlMigrationIntegrationTest {
     }
     @Test fun `fresh schema migrates then passes Hibernate validation`() {
         startValidated().use {
-            assertEquals("4", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
+            assertEquals("5", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
             assertEquals("1", scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='workers' AND column_name='invite_code'"))
         }
     }
