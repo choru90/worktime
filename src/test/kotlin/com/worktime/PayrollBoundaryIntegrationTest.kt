@@ -65,8 +65,8 @@ class PayrollBoundaryIntegrationTest {
                 .param("year", "2025").param("month", month.toString())
                 .header("Authorization", token)).andExpect(status().isOk)
                 .andReturn().response.contentAsString
-            return json.readTree(body).first { it["workerId"].asText() == worker.id.toString() }
-                ["totalPay"].decimalValue()
+            val entry = json.readTree(body).first { it["workerId"].asText() == worker.id.toString() }
+            return entry["totalPay"].decimalValue()
         }
         assertEquals(0, BigDecimal("40000").compareTo(amount(6)))
         assertEquals(0, BigDecimal("48000").compareTo(amount(7)))
