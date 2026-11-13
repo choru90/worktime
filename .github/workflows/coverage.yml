@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'scripts/coverage_audit.py'
       - 'build.gradle.kts'
       - 'gradle/**'
       - 'gradlew'
@@ -52,6 +53,9 @@ jobs:
           with open(__import__('os').environ['GITHUB_STEP_SUMMARY'], 'a') as f:
               f.write('\n'.join(output) + '\n')
           PY
+      - name: Review every uncovered class and branch
+        if: success()
+        run: python3 scripts/coverage_audit.py
       - name: Upload JaCoCo report
         if: always()
         uses: actions/upload-artifact@v4
@@ -59,6 +63,7 @@ jobs:
           name: backend-jacoco-coverage
           path: |
             build/reports/jacoco/test/
+            build/reports/jacoco/coverage-audit.md
             build/test-results/test/
           if-no-files-found: warn
           retention-days: 14
