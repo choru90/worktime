@@ -53,8 +53,12 @@ jobs:
             "runtime_credentials_exported": False
           }))
           def run(args, data=None):
-              p = subprocess.run(args, input=data, text=True, capture_output=True, timeout=30)
-              if p.returncode: raise RuntimeError("server precheck command failed; output suppressed")
+              p = subprocess.run(args, input=data, text=True, capture_output=True, timeout=30, cwd=root)
+              if p.returncode:
+                  e=p.stderr.lower()
+                  category = "permission" if "permission denied" in e else "missing_variable" if "variable" in e else "missing_file" if "no such file" in e else "docker_unavailable" if "daemon" in e else "other"
+                  print(json.dumps({"precheck_failure_category":category,"command_stage":"compose_config" if "config" in args else "database_query","exit_code":p.returncode}))
+                  raise RuntimeError("server precheck command failed; output suppressed")
               return p.stdout
           cfg = json.loads(run(["docker", "compose", "-f", str(root / "compose.yml"), "config", "--format", "json"]))
           services = cfg["services"]
