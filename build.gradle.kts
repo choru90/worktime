@@ -6,6 +6,7 @@ plugins {
     kotlin("jvm") version "1.9.20"
     kotlin("plugin.spring") version "1.9.20"
     kotlin("plugin.jpa") version "1.9.20"
+    jacoco
 }
 
 group = "com.worktime"
@@ -69,4 +70,16 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// WT-001: collect coverage evidence before defining enforcement thresholds.
+// Report generation is intentionally separate from the normal test task so existing
+// CI behavior is unchanged until the baseline is reviewed.
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
 }
