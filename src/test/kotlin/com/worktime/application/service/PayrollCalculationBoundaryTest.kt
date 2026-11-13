@@ -106,4 +106,10 @@ class PayrollCalculationBoundaryTest {
         verify(logs).findConfirmedWorkLogsInRange(worker,OffsetDateTime.parse("1900-01-01T00:00:00Z"),OffsetDateTime.parse("1900-02-01T00:00:00Z"))
         verify(logs).findConfirmedWorkLogsInRange(worker,OffsetDateTime.parse("2100-12-01T00:00:00Z"),OffsetDateTime.parse("2101-01-01T00:00:00Z"))
     }
+
+    @Test fun `filtered monthly payroll rejects missing worker after resolving owner`() {
+        whenever(owners.findByUserId(owner.user.id)).thenReturn(owner)
+        assertThrows<ResourceNotFoundException> { service.getMonthlyPayrollSummary(owner.user.id,2024,2,worker.id) }
+        verifyNoInteractions(logs,wages)
+    }
 }

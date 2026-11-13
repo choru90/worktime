@@ -30,6 +30,7 @@ class RegularShiftController(
 ) {
     
     @PostMapping("/stores/{storeId}/regular-shifts")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "고정 근무 생성", description = "새 고정 근무를 등록합니다")
     fun createRegularShift(
         @PathVariable storeId: UUID,
@@ -49,6 +50,7 @@ class RegularShiftController(
     }
     
     @GetMapping("/stores/{storeId}/regular-shifts")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "고정 근무 목록 조회", description = "영업장의 모든 고정 근무를 조회합니다")
     fun getRegularShiftsByStore(
         @PathVariable storeId: UUID,
@@ -63,6 +65,7 @@ class RegularShiftController(
     }
     
     @GetMapping("/stores/{storeId}/regular-shifts/today")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "오늘의 고정 근무 조회", description = "오늘 근무해야 할 고정 근무 목록을 조회합니다")
     fun getTodayShifts(
         @PathVariable storeId: UUID
@@ -72,6 +75,7 @@ class RegularShiftController(
     }
     
     @GetMapping("/stores/{storeId}/regular-shifts/date/{date}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "특정 날짜 고정 근무 조회", description = "특정 날짜에 유효한 고정 근무를 조회합니다")
     fun getShiftsByDate(
         @PathVariable storeId: UUID,
@@ -82,6 +86,7 @@ class RegularShiftController(
     }
     
     @GetMapping("/regular-shifts/{shiftId}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.shift(#shiftId)")
     @Operation(summary = "고정 근무 상세 조회", description = "특정 고정 근무의 상세 정보를 조회합니다")
     fun getRegularShift(
         @PathVariable shiftId: UUID
@@ -91,6 +96,7 @@ class RegularShiftController(
     }
     
     @PutMapping("/regular-shifts/{shiftId}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.shift(#shiftId)")
     @Operation(summary = "고정 근무 수정", description = "고정 근무 정보를 수정합니다")
     fun updateRegularShift(
         @PathVariable shiftId: UUID,
@@ -117,6 +123,7 @@ class RegularShiftController(
     }
     
     @DeleteMapping("/regular-shifts/{shiftId}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.shift(#shiftId)")
     @Operation(summary = "고정 근무 비활성화", description = "고정 근무를 비활성화합니다")
     fun deactivateRegularShift(
         @PathVariable shiftId: UUID
@@ -126,6 +133,7 @@ class RegularShiftController(
     }
     
     @GetMapping("/workers/{workerId}/regular-shifts")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#workerId)")
     @Operation(summary = "근로자의 고정 근무 조회", description = "특정 근로자의 고정 근무 목록을 조회합니다")
     fun getRegularShiftsByWorker(
         @PathVariable workerId: UUID
@@ -137,6 +145,7 @@ class RegularShiftController(
     // ===== 월별 스케줄 생성 =====
     
     @PostMapping("/stores/{storeId}/generate-schedules")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "월별 스케줄 자동 생성", description = "고정 근무를 기반으로 해당 월의 개별 스케줄을 생성합니다")
     fun generateMonthlySchedules(
         @PathVariable storeId: UUID,

@@ -132,4 +132,12 @@ class ScheduleBoundaryTest {
         whenever(workers.findById(worker.id)).thenReturn(null)
         assertThrows<ResourceNotFoundException> { service.generateMonthlySchedules(store.id,2024,2,listOf(shift)) }
     }
+
+    @Test fun `unlinked worker confirmation and rejection persist without notifications`() {
+        val target=schedule();setup(target);worker.userAccount=null
+        assertEquals(ScheduleStatus.CONFIRMED,service.confirmSchedule(target.id).status)
+        target.status=ScheduleStatus.REQUESTED_BY_WORKER
+        assertEquals(ScheduleStatus.REJECTED,service.rejectSchedule(target.id).status)
+        verifyNoInteractions(notifications)
+    }
 }

@@ -65,6 +65,7 @@ class StoreController(
     }
     
     @GetMapping("/{storeId}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "영업장 상세 조회", description = "특정 영업장의 상세 정보를 조회합니다")
     fun getStore(
         @PathVariable storeId: UUID
@@ -74,6 +75,7 @@ class StoreController(
     }
     
     @PutMapping("/{storeId}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "영업장 수정", description = "영업장 정보를 수정합니다")
     fun updateStore(
         @PathVariable storeId: UUID,
@@ -89,6 +91,7 @@ class StoreController(
     }
     
     @DeleteMapping("/{storeId}")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "영업장 비활성화", description = "영업장을 비활성화합니다")
     fun deactivateStore(
         @PathVariable storeId: UUID
@@ -100,6 +103,7 @@ class StoreController(
     // ===== 영업시간 관리 =====
     
     @GetMapping("/{storeId}/business-hours")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "영업시간 조회", description = "영업장의 영업시간을 조회합니다")
     fun getBusinessHours(
         @PathVariable storeId: UUID
@@ -109,6 +113,7 @@ class StoreController(
     }
     
     @PutMapping("/{storeId}/business-hours")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.store(#storeId)")
     @Operation(summary = "영업시간 설정", description = "영업장의 영업시간을 설정합니다 (7일 전체)")
     fun setBusinessHours(
         @PathVariable storeId: UUID,

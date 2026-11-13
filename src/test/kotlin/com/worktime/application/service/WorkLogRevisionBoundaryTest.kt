@@ -117,4 +117,43 @@ class WorkLogRevisionBoundaryTest {
         assertThrows<ResourceNotFoundException> { service.getAllWorkLogs(start,start.plusDays(1),UUID.randomUUID(),null,owner.id) }
         verify(logs,never()).findByOwnerAndTimeRange(any(),any(),any())
     }
+
+    @Test fun `manual log requires existing owned confirmed schedule and prevents duplicates`() {
+        setup();val schedule=schedule();whenever(schedules.findById(schedule.id)).thenReturn(schedule)
+        val request=ManualWorkLogRequest(start,start.plusHours(1))
+        assertThrows<ResourceNotFoundException> { service.createManualWorkLog(UUID.randomUUID(),schedule.id,request) }
+        assertThrows<ResourceNotFoundException> { service.createManualWorkLog(worker.id,UUID.randomUUID(),request) }
+        schedule.status=ScheduleStatus.REQUESTED_BY_WORKER
+        assertThrows<BusinessException> { service.createManualWorkLog(worker.id,schedule.id,request) }
+        schedule.status=ScheduleStatus.CONFIRMED
+        whenever(logs.findByScheduleIds(listOf(schedule.id))).thenReturn(listOf(log))
+        assertThrows<WorkLogConflictException> { service.createManualWorkLog(worker.id,schedule.id,request) }
+        whenever(logs.findByScheduleIds(listOf(schedule.id))).thenReturn(emptyList())
+        val result=service.createManualWorkLog(worker.id,schedule.id,request)
+        assertEquals(worker.id,result.workerId);assertEquals(schedule.id,result.scheduleId)
+        assertEquals(WorkLogStatus.COMPLETED,result.status);assertEquals(60L,result.durationMinutes)
+        val foreign=Schedule(worker=Worker(name="Foreign",phoneNumber="001",owner=owner),startAtUtc=start,endAtUtc=start.plusHours(1),timezone="UTC",status=ScheduleStatus.CONFIRMED)
+        whenever(schedules.findById(foreign.id)).thenReturn(foreign)
+        assertThrows<BusinessException> { service.createManualWorkLog(worker.id,foreign.id,request) }
+    }
+    @Test fun `missing worker and log fail read and clock operations without writes`() {
+        val missing=UUID.randomUUID()
+        assertThrows<ResourceNotFoundException> { service.clockOut(missing,ClockOutRequest(start)) }
+        assertThrows<ResourceNotFoundException> { service.getWorkLogById(missing) }
+        assertThrows<ResourceNotFoundException> { service.getWorkLogsByWorker(missing,null,null) }
+        assertThrows<ResourceNotFoundException> { service.getCurrentOngoingWorkLog(missing) }
+        setup();assertNull(service.getCurrentOngoingWorkLog(worker.id))
+        whenever(logs.findCurrentOngoingWorkLog(worker)).thenReturn(log)
+        assertEquals(log.id,service.getCurrentOngoingWorkLog(worker.id)!!.id)
+        assertEquals(log.id,service.getWorkLogById(log.id).id)
+        verify(logs,never()).save(any())
+    }
+
+    @Test fun `owner filtering by worker returns actual logs and synthetic missing checkins`() {
+        setup();val pending=schedule(start.minusDays(1),ScheduleStatus.PROPOSED_BY_OWNER)
+        whenever(logs.findByWorkerAndTimeRange(worker,start.minusDays(2),start.plusDays(2))).thenReturn(listOf(log))
+        whenever(schedules.findByWorkerAndTimeRange(worker,start.minusDays(2),start.plusDays(2))).thenReturn(listOf(pending))
+        val result=service.getAllWorkLogs(start.minusDays(2),start.plusDays(2),worker.id,null,owner.id)
+        assertEquals(listOf(log.id,pending.id),result.map { it.id });assertEquals(WorkLogStatus.NO_SHOW,result.last().status)
+    }
 }

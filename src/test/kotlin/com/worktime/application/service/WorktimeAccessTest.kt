@@ -21,7 +21,7 @@ class WorktimeAccessTest {
     private val owners = mock<OwnerRepository>()
     private val logs = mock<WorkLogRepository>()
     private val schedules = mock<ScheduleRepository>()
-    private val access = WorktimeAccess(workers, owners, logs, schedules)
+    private val access = WorktimeAccess(workers, owners, logs, schedules, mock(), mock(), mock())
     private val ownerUser = User(email="owner@test", password="pw", name="Owner", role=UserRole.OWNER)
     private val owner = Owner(user=ownerUser)
     private val account = User(email="worker@test", password="pw", name="Worker", role=UserRole.WORKER)

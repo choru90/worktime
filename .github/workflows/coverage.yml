@@ -6,6 +6,7 @@ on:
       - 'src/**'
       - 'scripts/coverage_audit.py'
       - 'scripts/coverage_inventory.py'
+      - 'scripts/test_results_audit.py'
       - 'build.gradle.kts'
       - 'gradle/**'
       - 'gradlew'
@@ -72,6 +73,7 @@ jobs:
         run: |
           python3 scripts/coverage_audit.py
           python3 scripts/coverage_inventory.py
+          python3 scripts/test_results_audit.py
       - name: Upload JaCoCo report
         if: always()
         uses: actions/upload-artifact@v4

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
+import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.time.LocalDate
@@ -26,6 +27,7 @@ class WageContractController(
 ) {
 
     @PostMapping("/wage-contracts")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#workerId)")
     @Operation(
         summary = "새로운 시급 계약 생성",
         description = "근로자의 새로운 시급 계약을 생성합니다. 기간이 겹치지 않도록 검증합니다."
@@ -39,6 +41,7 @@ class WageContractController(
     }
 
     @GetMapping("/wage")
+    @PreAuthorize("@worktimeAccess.worker(#workerId)")
     @Operation(
         summary = "특정 날짜의 시급 조회",
         description = "특정 날짜에 적용되는 시급을 조회합니다"
@@ -53,6 +56,7 @@ class WageContractController(
     }
 
     @GetMapping("/wage-contracts")
+    @PreAuthorize("@worktimeAccess.worker(#workerId)")
     @Operation(
         summary = "시급 계약 목록 조회",
         description = "근로자의 시급 계약 이력을 조회합니다"
@@ -65,6 +69,7 @@ class WageContractController(
     }
 
     @PatchMapping("/wage-contracts/{contractId}/terminate")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.contract(#workerId, #contractId)")
     @Operation(
         summary = "시급 계약 종료",
         description = "활성 시급 계약의 종료일을 설정하여 계약을 종료합니다"
