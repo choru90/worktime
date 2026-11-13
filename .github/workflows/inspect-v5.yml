@@ -1,0 +1,50 @@
+name: Inspect Worktime V5 release prerequisites
+on:
+  push:
+    branches: [codex/worktime-v5-release]
+    paths: [.github/workflows/inspect-v5.yml]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: staging
+    steps:
+      - name: Check release gate capabilities without exporting files
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          key_dir=$(mktemp -d)
+          trap 'rm -rf "$key_dir"' EXIT
+          chmod 700 "$key_dir"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key_dir/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$key_dir/known_hosts"
+          chmod 600 "$key_dir/key" "$key_dir/known_hosts"
+          ssh -i "$key_dir/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$key_dir/known_hosts" -o ConnectTimeout=15 -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'python3 -' <<'PY'
+          import ast, json
+          from pathlib import Path
+          source = Path("/opt/worktime/deploy.py").read_text()
+          tree = ast.parse(source)
+          literals = {node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+          allowed = ["--reviewed-release", "--allow-migration", "--approve-migration", "--reviewed", "--approve", "--root", "--service", "--sha"]
+          flags = [flag for flag in allowed if flag in literals]
+          print(json.dumps({
+              "executor_parses": True,
+              "migration_gate_present": "migration change requires reviewed release" in source,
+              "reviewed_release_option_present": any(flag in flags for flag in allowed[:5]),
+              "recognized_cli_flags": flags,
+              "backup_logic_present": "backup" in source.lower(),
+              "lock_logic_present": "flock" in source or "fcntl" in source,
+              "runtime_credentials_exported": False
+          }))
+          PY
