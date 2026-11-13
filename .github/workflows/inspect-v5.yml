@@ -74,4 +74,35 @@ jobs:
           lines=out.strip().splitlines()
           print(json.dumps({"flyway_versions":[line.split("\t") for line in lines[:-2]],"v5_columns":int(lines[-2]),"v5_table":int(lines[-1]),"runtime_credentials_exported":False}))
           
+          import gzip, hashlib, os, re, datetime
+          EXPECTED_V4={"bfb996c0c85bf871f029616e5d74c0a6fb7e14b1f59e8c176fff660929c48fda","08c58a09391e2fb55407b09df642056986d09e2d6e5fd97d23d6cdde0ff5a286"}
+          EXPECTED_V5="c276840a0438395c0f32e9844dcda29137c03a194df7212bb48462d34a14316d"
+          assert [line.split("\t") for line in lines[:-2]] == [["1","1"],["2","1"],["3","1"],["4","1"],["5","1"]]
+          assert int(lines[-2])==2 and int(lines[-1])==1
+          scope={"root":root,"Path":Path}
+          def path_eval(n):
+              if isinstance(n,ast.Name) and n.id in scope:return scope[n.id]
+              if isinstance(n,ast.Constant) and isinstance(n.value,str):return n.value
+              if isinstance(n,ast.BinOp) and isinstance(n.op,ast.Div):
+                  return path_eval(n.left)/path_eval(n.right)
+              if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=="Path" and len(n.args)==1:return Path(path_eval(n.args[0]))
+              raise ValueError("not a static path")
+          for n in sorted((n for n in ast.walk(deploy) if isinstance(n,ast.Assign) and n.lineno<gate.lineno),key=lambda n:n.lineno):
+              try:
+                  value=path_eval(n.value)
+                  if isinstance(value,Path):
+                      for t in n.targets:
+                          if isinstance(t,ast.Name):scope[t.id]=value
+              except (ValueError,TypeError,KeyError):pass
+          paths=set()
+          for n in ast.walk(deploy):
+              if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="read_text" and n.lineno<=gate.lineno:
+                  try:
+                      p=path_eval(n.func.value)
+                      if isinstance(p,Path) and p.is_file() and p.resolve().parent==root.resolve() and "migration" in p.name.lower():
+                          paths.add(p)
+                  except (ValueError,TypeError,KeyError,OSError):pass
+          old=[p for p in paths if p.read_text().strip() in EXPECTED_V4]
+          new=[p for p in paths if p.read_text().strip()==EXPECTED_V5]
+          print(json.dumps({"recognized_migration_approval_files":len(paths),"v4_approval_files":len(old),"v5_approval_files":len(new),"runtime_credentials_exported":False}))
           PY
