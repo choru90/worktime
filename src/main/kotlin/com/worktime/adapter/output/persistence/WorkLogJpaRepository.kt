@@ -91,7 +91,8 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         WHERE wl.worker = :worker 
         AND wl.status IN ('COMPLETED', 'CONFIRMED')
         AND wl.clockInAt >= :startTime 
-        AND wl.clockOutAt <= :endTime
+        AND wl.clockInAt < :endTime
+        AND wl.clockOutAt IS NOT NULL
         ORDER BY wl.clockInAt DESC
     """)
     fun findCompletedWorkLogsInRange(

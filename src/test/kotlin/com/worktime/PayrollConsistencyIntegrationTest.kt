@@ -96,6 +96,8 @@ class PayrollConsistencyIntegrationTest {
         assertEquals(5001,summary.single()["totalPay"].asInt())
         val direct=json.readTree(mvc.perform(get("/api/workers/${worker.id}/payroll?from=${java.time.YearMonth.of(year,month).atDay(1)}&to=${java.time.YearMonth.of(year,month).atEndOfMonth()}").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
         assertEquals(5001,direct["totalPay"].asInt())
+        val hours=json.readTree(mvc.perform(get("/api/workers/${worker.id}/work-summary?from=${java.time.YearMonth.of(year,month).atDay(1)}&to=${java.time.YearMonth.of(year,month).atEndOfMonth()}").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
+        assertEquals(30,hours["totalMinutes"].asInt())
         val dashboard=json.readTree(mvc.perform(get("/api/owner/dashboard/summary?date=${java.time.YearMonth.of(year,month).atDay(15)}").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
         assertEquals(5001,dashboard["month"]["accruedWage"].asInt())
     }
