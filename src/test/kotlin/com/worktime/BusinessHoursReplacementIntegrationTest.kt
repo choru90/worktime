@@ -19,6 +19,12 @@ import java.util.UUID
 @SpringBootTest(properties=["spring.datasource.url=jdbc:h2:mem:business_hours_rule;MODE=MySQL;DB_CLOSE_DELAY=-1","spring.datasource.driver-class-name=org.h2.Driver","spring.datasource.username=sa","spring.datasource.password=","spring.jpa.database-platform=org.hibernate.dialect.H2Dialect","spring.jpa.hibernate.ddl-auto=create-drop","spring.flyway.enabled=false","spring.jpa.show-sql=false","jwt.secret=synthetic-business-hours-rule-test-key-with-at-least-32-bytes"])
 @Transactional
 class BusinessHoursReplacementIntegrationTest {
+    companion object {
+        @JvmStatic @org.springframework.test.context.DynamicPropertySource
+        fun mysql(registry: org.springframework.test.context.DynamicPropertyRegistry) {
+            ConcurrentScheduleIntegrationTest.mysql(registry)
+        }
+    }
     @Autowired lateinit var service:BusinessHoursService
     @Autowired lateinit var em:EntityManager
     private fun store():Store {
