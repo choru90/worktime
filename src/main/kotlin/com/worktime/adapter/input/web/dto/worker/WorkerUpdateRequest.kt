@@ -3,6 +3,7 @@ package com.worktime.adapter.input.web.dto.worker
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Pattern
+import jakarta.validation.constraints.Size
 import java.util.*
 
 /**
@@ -11,6 +12,7 @@ import java.util.*
 @Schema(description = "Request to update a worker")
 data class WorkerUpdateRequest(
     @field:NotBlank(message = "Name is required")
+    @field:Size(max = 100, message = "Name must be at most 100 characters")
     @Schema(description = "Worker's name", example = "홍길동", required = true)
     val name: String,
     

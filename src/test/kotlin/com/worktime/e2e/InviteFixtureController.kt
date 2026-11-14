@@ -26,4 +26,12 @@ class InviteFixtureController(private val em: EntityManager) {
         worker.inviteCodeExpiresAt = OffsetDateTime.now().minusDays(1)
         return mapOf("expired" to true)
     }
+    @PostMapping("/api/e2e/fixtures/workers/{workerId}/unlink-account")
+    @PreAuthorize("hasRole('OWNER') and @worktimeAccess.worker(#workerId)")
+    @Transactional
+    fun unlink(@PathVariable workerId: UUID): Map<String, Boolean> {
+        em.find(Worker::class.java, workerId).userAccount = null
+        return mapOf("unlinked" to true)
+    }
+
 }
