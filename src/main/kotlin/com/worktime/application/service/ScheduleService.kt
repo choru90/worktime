@@ -37,6 +37,7 @@ class ScheduleService(
             ?: throw ResourceNotFoundException("Worker not found with id: ${request.workerId}")
         
         workerRepository.lockForWrite(worker)
+        enforceWorkerMutationPolicy(worker)
         // Check for time conflicts with CONFIRMED schedules
         val overlappingSchedules = scheduleRepository.findConfirmedSchedulesOverlapping(
             worker = worker,
@@ -90,6 +91,7 @@ class ScheduleService(
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
         workerRepository.lockForWrite(schedule.worker)
+        enforceWorkerMutationPolicy(schedule.worker)
         scheduleRepository.refreshForWrite(schedule)
 
         // 시간 유효성 검사
@@ -123,6 +125,7 @@ class ScheduleService(
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
         workerRepository.lockForWrite(schedule.worker)
+        enforceWorkerMutationPolicy(schedule.worker)
         scheduleRepository.refreshForWrite(schedule)
         
         if (schedule.status != com.worktime.domain.model.ScheduleStatus.REQUESTED_BY_WORKER &&
@@ -159,6 +162,7 @@ class ScheduleService(
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
         workerRepository.lockForWrite(schedule.worker)
+        enforceWorkerMutationPolicy(schedule.worker)
         scheduleRepository.refreshForWrite(schedule)
         
         try {
@@ -187,6 +191,7 @@ class ScheduleService(
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")
         workerRepository.lockForWrite(schedule.worker)
+        enforceWorkerMutationPolicy(schedule.worker)
         scheduleRepository.refreshForWrite(schedule)
         
         try {

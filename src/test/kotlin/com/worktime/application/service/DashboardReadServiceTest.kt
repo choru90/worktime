@@ -36,7 +36,10 @@ class DashboardReadServiceTest {
     // KST 2025-12-15
     private val targetDate = LocalDate.of(2025, 12, 15)
     private val todayRange = DashboardDateRange.todayRange(targetDate)
-    private val monthRange = DashboardDateRange.monthRange(targetDate)
+    private val monthRange = com.worktime.domain.util.DateTimeRange(
+        targetDate.withDayOfMonth(1).atStartOfDay().atOffset(java.time.ZoneOffset.UTC),
+        targetDate.withDayOfMonth(1).plusMonths(1).atStartOfDay().atOffset(java.time.ZoneOffset.UTC)
+    )
 
     @BeforeEach
     fun setUp() {

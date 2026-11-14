@@ -89,10 +89,14 @@ class DashboardReadService(
     }
     
     private fun calculateMonthKpi(ownerId: UUID, range: com.worktime.domain.util.DateTimeRange): MonthKpiDto {
+        // Monthly wage follows the approved UTC clock-in month, while daily attendance stays local.
+        val month = java.time.YearMonth.from(range.start.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")))
+        val wageStart = month.atDay(1).atStartOfDay().atOffset(java.time.ZoneOffset.UTC)
+        val wageEnd = month.plusMonths(1).atDay(1).atStartOfDay().atOffset(java.time.ZoneOffset.UTC)
         // 1. Accrued Wage
         // Get all completed/confirmed worklogs for the month
         val workLogs = workLogRepository.findByOwnerAndTimeRange(
-            ownerId, range.start, range.endExclusive
+            ownerId, wageStart, wageEnd
         ).filter { 
             it.status == com.worktime.domain.model.WorkLogStatus.CONFIRMED 
         }
@@ -112,7 +116,7 @@ class DashboardReadService(
         }
         
         for (workLog in workLogs) {
-            val workDate = workLog.clockInAt.atZoneSameInstant(java.time.ZoneId.of("Asia/Seoul")).toLocalDate()
+            val workDate = workLog.clockInAt.withOffsetSameInstant(java.time.ZoneOffset.UTC).toLocalDate()
             val contracts = contractsMap[workLog.worker.id] ?: emptyList()
             
             // Find valid contract for the work date
@@ -121,7 +125,7 @@ class DashboardReadService(
             if (validContract != null) {
                 // Calculate wage: hours * hourlyWage
                 val hours = workLog.calculateDuration()?.toMinutes()?.toDouble()?.div(60.0) ?: 0.0
-                val wage = validContract.hourlyWage.multiply(java.math.BigDecimal.valueOf(hours))
+                val wage = validContract.hourlyWage.multiply(java.math.BigDecimal.valueOf(hours)).setScale(0, java.math.RoundingMode.HALF_UP)
                 totalAccruedWage = totalAccruedWage.add(wage)
             }
         }

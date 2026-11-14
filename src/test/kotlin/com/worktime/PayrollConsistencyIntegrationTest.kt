@@ -68,8 +68,8 @@ class PayrollConsistencyIntegrationTest {
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource(
-        "2024-02-29T23:00:00Z,2024,2,2024-02-29",
-        "2024-12-31T23:00:00Z,2024,12,2024-12-31",
+        "2024-02-29T23:30:00Z,2024,2,2024-02-29",
+        "2024-12-31T23:30:00Z,2024,12,2024-12-31",
         "2025-01-01T00:30:00Z,2025,1,2025-01-01",
         "2024-03-01T00:30:00+09:00,2024,2,2024-02-29"
     )
@@ -89,6 +89,15 @@ class PayrollConsistencyIntegrationTest {
         assertEquals(30,detail["totalWorkMinutes"].asInt())
         assertEquals(wageDay,detail["dailyDetails"].single()["date"].asText())
         assertEquals(30L,em.find(WorkLog::class.java,log.id).calculateDuration()!!.toMinutes())
+        val next=java.time.YearMonth.of(year,month).plusMonths(1)
+        val nextDetail=json.readTree(mvc.perform(get("/api/payroll/workers/${worker.id}/monthly?year=${next.year}&month=${next.monthValue}").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
+        assertEquals(0,nextDetail["totalAmount"].asInt())
+        val summary=json.readTree(mvc.perform(get("/api/payroll/owner/monthly?year=$year&month=$month").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
+        assertEquals(5001,summary.single()["totalPay"].asInt())
+        val direct=json.readTree(mvc.perform(get("/api/workers/${worker.id}/payroll?from=${java.time.YearMonth.of(year,month).atDay(1)}&to=${java.time.YearMonth.of(year,month).atEndOfMonth()}").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
+        assertEquals(5001,direct["totalPay"].asInt())
+        val dashboard=json.readTree(mvc.perform(get("/api/owner/dashboard/summary?date=${java.time.YearMonth.of(year,month).atDay(15)}").header("Authorization",headers)).andExpect(status().isOk).andReturn().response.contentAsString)
+        assertEquals(5001,dashboard["month"]["accruedWage"].asInt())
     }
 
 }

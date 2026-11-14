@@ -23,7 +23,8 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
     @Query("""
         SELECT wl FROM WorkLog wl WHERE wl.worker = :worker
         AND wl.status = 'CONFIRMED'
-        AND wl.clockInAt >= :startTime AND wl.clockOutAt <= :endTime
+        AND wl.clockInAt >= :startTime AND wl.clockInAt < :endTime
+        AND wl.clockOutAt IS NOT NULL
         ORDER BY wl.clockInAt DESC
     """)
     fun findConfirmedWorkLogsInRange(
@@ -59,7 +60,7 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         SELECT wl FROM WorkLog wl 
         WHERE wl.worker = :worker 
         AND wl.clockInAt >= :startTime 
-        AND (wl.clockOutAt IS NULL OR wl.clockOutAt <= :endTime)
+        AND wl.clockInAt < :endTime
         ORDER BY wl.clockInAt DESC
     """)
     fun findByWorkerAndTimeRange(
@@ -74,7 +75,7 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
     @Query("""
         SELECT wl FROM WorkLog wl 
         WHERE wl.clockInAt >= :startTime 
-        AND (wl.clockOutAt IS NULL OR wl.clockOutAt <= :endTime)
+        AND wl.clockInAt < :endTime
         ORDER BY wl.clockInAt DESC
     """)
     fun findByTimeRange(
@@ -130,7 +131,7 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         SELECT wl FROM WorkLog wl 
         WHERE wl.worker.owner.id = :ownerId
         AND wl.clockInAt >= :startTime 
-        AND (wl.clockOutAt IS NULL OR wl.clockOutAt <= :endTime)
+        AND wl.clockInAt < :endTime
         ORDER BY wl.clockInAt DESC
     """)
     fun findByOwnerAndTimeRange(
@@ -178,7 +179,7 @@ interface WorkLogJpaRepository : JpaRepository<WorkLog, UUID> {
         AND wl.status IN ('COMPLETED', 'CONFIRMED')
         AND wl.clockOutAt IS NOT NULL
         AND wl.clockInAt >= :startTime 
-        AND wl.clockOutAt <= :endTime
+        AND wl.clockInAt < :endTime
     """)
     fun findCompletedByOwnerAndRange(
         @Param("ownerId") ownerId: UUID, 

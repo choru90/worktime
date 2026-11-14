@@ -84,20 +84,26 @@ tasks.jacocoTestReport {
     }
 }
 
-// WT-002: disposable loopback-only server; H2 stays on the test classpath.
-// This task cannot load application-local credentials or connect to a shared DB.
+// WT-002: disposable loopback-only server; fixed H2 or CI-only MySQL targets.
+// Test fixtures stay on the test classpath and never enter the production JAR.
 tasks.register<JavaExec>("e2eServer") {
     dependsOn(tasks.testClasses)
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("com.worktime.ApplicationKt")
+    val database = providers.gradleProperty("wtE2eDatabase").getOrElse("h2")
+    require(database in setOf("h2", "mysql")) { "Use only h2 or the disposable mysql target" }
+    val mysql = database == "mysql"
     args("--server.address=127.0.0.1", "--server.port=8080",
         "--spring.profiles.active=wt002-e2e",
-        "--spring.datasource.url=jdbc:h2:mem:wt002_e2e;MODE=MySQL;DB_CLOSE_DELAY=-1",
-        "--spring.datasource.driver-class-name=org.h2.Driver",
-        "--spring.datasource.username=sa", "--spring.datasource.password=",
-        "--spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-        "--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-        "--spring.jpa.hibernate.ddl-auto=create-drop", "--spring.flyway.enabled=false",
+        "--spring.datasource.url=" + if (mysql) "jdbc:mysql://127.0.0.1:13308/worktime_browser_e2e?serverTimezone=UTC" else "jdbc:h2:mem:wt002_e2e;MODE=MySQL;DB_CLOSE_DELAY=-1",
+        "--spring.datasource.driver-class-name=" + if (mysql) "com.mysql.cj.jdbc.Driver" else "org.h2.Driver",
+        "--spring.datasource.username=" + if (mysql) "worktime_e2e" else "sa",
+        "--spring.datasource.password=" + if (mysql) "synthetic-e2e-password" else "",
+        "--spring.jpa.database-platform=" + if (mysql) "org.hibernate.dialect.MySQLDialect" else "org.hibernate.dialect.H2Dialect",
+        "--spring.jpa.properties.hibernate.dialect=" + if (mysql) "org.hibernate.dialect.MySQLDialect" else "org.hibernate.dialect.H2Dialect",
+        "--spring.jpa.hibernate.ddl-auto=" + if (mysql) "validate" else "create-drop",
+        "--spring.flyway.enabled=$mysql", "--spring.flyway.baseline-on-migrate=false",
+        "--spring.flyway.placeholders.legacyScheduleTimezone=UTC",
         "--jwt.secret=wt002-disposable-e2e-signing-key-at-least-32-bytes", "--jwt.expiration=3600000",
         "--spring.jpa.show-sql=false", "--spring.jpa.properties.hibernate.generate_statistics=false",
         "--logging.level.org.hibernate.SQL=WARN", "--logging.level.com.worktime=INFO")

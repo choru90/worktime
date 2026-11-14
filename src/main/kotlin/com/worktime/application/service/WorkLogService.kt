@@ -33,6 +33,7 @@ class WorkLogService(
     private fun lockLog(id: UUID): WorkLog {
         val log=workLogRepository.findById(id) ?: throw ResourceNotFoundException("Resource not found")
         workerRepository.lockForWrite(log.worker)
+        enforceWorkerMutationPolicy(log.worker)
         workLogRepository.refreshForWrite(log)
         return log
     }
@@ -57,6 +58,7 @@ class WorkLogService(
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
         workerRepository.lockForWrite(worker)
+        enforceWorkerMutationPolicy(worker)
         
         // Check if worker already has an ongoing work log
         if (workLogRepository.hasOngoingWorkLog(worker)) {
@@ -92,6 +94,7 @@ class WorkLogService(
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
         workerRepository.lockForWrite(worker)
+        enforceWorkerMutationPolicy(worker)
         
         // Find the current ongoing work log
         val workLog = workLogRepository.findCurrentOngoingWorkLog(worker)
@@ -121,6 +124,7 @@ class WorkLogService(
         val worker = workerRepository.findById(workerId)
             ?: throw ResourceNotFoundException("Worker not found with id: $workerId")
         workerRepository.lockForWrite(worker)
+        enforceWorkerMutationPolicy(worker)
         
         val schedule = scheduleRepository.findById(scheduleId)
             ?: throw ResourceNotFoundException("Schedule not found with id: $scheduleId")

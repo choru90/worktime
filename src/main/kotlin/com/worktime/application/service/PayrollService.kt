@@ -63,7 +63,7 @@ class PayrollService(
         // Group by date for daily summaries
         val dailySummaries = workLogs
             .groupBy { workLog ->
-                workLog.clockInAt.toLocalDate()
+                workLog.clockInAt.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate()
             }
             .map { (date, logs) ->
                 val dailyMinutes = logs.sumOf { it.calculateDuration()?.toMinutes() ?: 0L }
@@ -202,7 +202,7 @@ class PayrollService(
         
         // Calculate daily details
         val dailyDetails = workLogs
-            .groupBy { workLog -> workLog.clockInAt.toLocalDate() }
+            .groupBy { workLog -> workLog.clockInAt.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate() }
             .map { (date, logs) ->
                 val dailyMinutes = logs.sumOf { it.calculateDuration()?.toMinutes() ?: 0L }
                 val dailyHours = dailyMinutes / 60.0
@@ -252,7 +252,7 @@ class PayrollService(
             ?: throw BusinessException("Cannot calculate pay for incomplete work log: ${workLog.id}")
         
         val hours = duration.toMinutes() / 60.0
-        val date = workLog.clockInAt.toLocalDate()
+        val date = workLog.clockInAt.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate()
         
         // Get wage contract for the work date
         val wageInfo = wageContractUseCase.getWageOnDate(workLog.worker.id, date)
