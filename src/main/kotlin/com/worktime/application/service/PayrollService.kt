@@ -210,8 +210,12 @@ class PayrollService(
                 // Get wage contract for the date
                 val wageInfo = wageContractUseCase.getWageOnDate(workerId, date)
                 val hourlyWage = wageInfo.hourlyWage ?: BigDecimal.ZERO
-                val amount = hourlyWage.multiply(BigDecimal.valueOf(dailyHours))
-                    .setScale(0, RoundingMode.HALF_UP)
+                // Keep the established per-work-log rounding used by the owner summary.
+                // Rounding the daily aggregate can lose a won across split shifts.
+                val amount = logs.sumOf { log ->
+                    val hours = (log.calculateDuration()?.toMinutes() ?: 0L) / 60.0
+                    hourlyWage.multiply(BigDecimal.valueOf(hours)).setScale(0, RoundingMode.HALF_UP)
+                }
                 
                 com.worktime.adapter.input.web.dto.payroll.DailyPayrollDetail(
                     date = date.toString(),

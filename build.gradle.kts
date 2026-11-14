@@ -83,3 +83,21 @@ tasks.jacocoTestReport {
         csv.required.set(false)
     }
 }
+
+// WT-002: disposable loopback-only server; H2 stays on the test classpath.
+// This task cannot load application-local credentials or connect to a shared DB.
+tasks.register<JavaExec>("e2eServer") {
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("com.worktime.ApplicationKt")
+    args("--server.address=127.0.0.1", "--server.port=8080",
+        "--spring.profiles.active=wt002-e2e",
+        "--spring.datasource.url=jdbc:h2:mem:wt002_e2e;MODE=MySQL;DB_CLOSE_DELAY=-1",
+        "--spring.datasource.driver-class-name=org.h2.Driver",
+        "--spring.datasource.username=sa", "--spring.datasource.password=",
+        "--spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "--spring.jpa.hibernate.ddl-auto=create-drop", "--spring.flyway.enabled=false",
+        "--jwt.secret=wt002-disposable-e2e-signing-key-at-least-32-bytes", "--jwt.expiration=3600000",
+        "--spring.jpa.show-sql=false", "--spring.jpa.properties.hibernate.generate_statistics=false",
+        "--logging.level.org.hibernate.SQL=WARN", "--logging.level.com.worktime=INFO")
+}
