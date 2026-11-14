@@ -1,0 +1,15 @@
+# UNAPPLIED PROPOSAL: needs CEO confirmation of the business rule.
+# Closed days accept any display times; open days require open < close.
+# This changes accepted business input. It has not been applied for coverage.
+diff --git a/src/main/kotlin/com/worktime/application/service/BusinessHoursService.kt b/src/main/kotlin/com/worktime/application/service/BusinessHoursService.kt
+--- a/src/main/kotlin/com/worktime/application/service/BusinessHoursService.kt
++++ b/src/main/kotlin/com/worktime/application/service/BusinessHoursService.kt
+@@ -43,7 +43,7 @@
+         
+         // 새 영업시간 저장
+         val businessHoursList = hours.map { request ->
+-            require(!request.isClosed || (request.openTime.isBefore(request.closeTime) || request.isClosed)) {
++            require(request.isClosed || request.openTime.isBefore(request.closeTime)) {
+                 "영업 시작 시간은 종료 시간보다 이전이어야 합니다"
+             }
+             

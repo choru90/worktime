@@ -18,7 +18,10 @@ class WorktimeAccess(
     private val workers: WorkerRepository,
     private val owners: OwnerRepository,
     private val logs: WorkLogRepository,
-    private val schedules: ScheduleRepository
+    private val schedules: ScheduleRepository,
+    private val stores: com.worktime.adapter.output.persistence.StoreJpaRepository,
+    private val shifts: com.worktime.adapter.output.persistence.RegularShiftJpaRepository,
+    private val contracts: WageContractRepository
 ) {
     private fun authentication() = SecurityContextHolder.getContext().authentication
         ?: throw AccessDeniedException("Authentication required")
@@ -40,6 +43,24 @@ class WorktimeAccess(
             else -> false
         }
         if (!permitted) missing()
+        return true
+    }
+
+    fun store(id: UUID): Boolean {
+        val target = stores.findById(id).orElse(null) ?: missing()
+        if (!isOwner() || target.owner.user.id != userId()) missing()
+        return true
+    }
+
+    fun shift(id: UUID): Boolean {
+        val target = shifts.findById(id).orElse(null) ?: missing()
+        return store(target.store.id)
+    }
+
+    fun contract(workerId: UUID, contractId: UUID): Boolean {
+        worker(workerId)
+        val target = contracts.findById(contractId) ?: missing()
+        if (target.worker.id != workerId) missing()
         return true
     }
 

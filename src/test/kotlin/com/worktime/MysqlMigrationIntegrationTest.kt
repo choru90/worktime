@@ -50,7 +50,7 @@ class MysqlMigrationIntegrationTest {
     }
     @Test fun `fresh schema migrates then passes Hibernate validation`() {
         startValidated().use {
-            assertEquals("4", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
+            assertEquals("5", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
             assertEquals("1", scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='workers' AND column_name='invite_code'"))
         }
     }
@@ -92,4 +92,32 @@ class MysqlMigrationIntegrationTest {
         assertEquals("0", scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='workers' AND column_name='invite_code'"))
     }
 
+
+    @Test fun `blank fallback is ignored when a valid store timezone exists`() {
+        legacy()
+        Flyway.configure().dataSource(url,"root","").placeholders(mapOf("legacyScheduleTimezone" to " ")).load().migrate()
+        assertEquals("Asia/Seoul",scalar("SELECT timezone FROM schedules"))
+        assertEquals("2025-06-10 00:00:00",scalar("SELECT DATE_FORMAT(start_at_utc,'%Y-%m-%d %H:%i:%s') FROM schedules"))
+    }
+    @Test fun `blank store timezone uses explicit validated fallback`() {
+        legacy();sql("UPDATE stores SET timezone=' '")
+        Flyway.configure().dataSource(url,"root","").placeholders(mapOf("legacyScheduleTimezone" to "Asia/Seoul")).load().migrate()
+        assertEquals("Asia/Seoul",scalar("SELECT timezone FROM schedules"))
+    }
+    @Test fun `reversed legacy hours stop before irreversible DDL`() {
+        legacy();sql("UPDATE schedules SET start_time='18:00',end_time='09:00'")
+        assertThrows(Exception::class.java) { flyway().migrate() }
+        assertEquals("0",scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='workers' AND column_name='invite_code'"))
+        assertEquals("18:00:00",scalar("SELECT DATE_FORMAT(start_time,'%H:%i:%s') FROM schedules"))
+        assertEquals("2",scalar("SELECT COUNT(*) FROM wage_contracts"))
+    }
+    @Test fun `wage end dates never borrow next contract from a different worker`() {
+        legacy()
+        sql("INSERT INTO workers(id,name,phone_number,owner_id,store_id) VALUES (UNHEX(LPAD('10',32,'0')),'Other worker','00000000001',UNHEX(LPAD('2',32,'0')),UNHEX(LPAD('3',32,'0')))")
+        sql("INSERT INTO wage_contracts(id,worker_id,hourly_wage,effective_date) VALUES (UNHEX(LPAD('11',32,'0')),UNHEX(LPAD('10',32,'0')),11000,'2025-01-01')")
+        flyway().migrate()
+        assertEquals("2",scalar("SELECT COUNT(*) FROM wage_contracts WHERE end_date IS NULL"))
+        assertEquals("2025-06-30",scalar("SELECT end_date FROM wage_contracts WHERE id=UNHEX(LPAD('5',32,'0'))"))
+        assertEquals("1",scalar("SELECT COUNT(*) FROM wage_contracts WHERE id=UNHEX(LPAD('11',32,'0')) AND end_date IS NULL"))
+    }
 }

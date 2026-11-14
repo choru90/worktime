@@ -45,6 +45,8 @@ class RegularShiftService(
         val worker = workerRepository.findById(workerId)
             .orElseThrow { ResourceNotFoundException("Worker not found with id: $workerId") }
         
+        if (worker.owner.id != store.owner.id) throw ResourceNotFoundException("Resource not found")
+
         require(startTime.isBefore(endTime)) {
             "시작 시간은 종료 시간보다 이전이어야 합니다"
         }
@@ -165,6 +167,7 @@ class RegularShiftService(
         val worker = workerRepository.findById(workerId)
             .orElseThrow { ResourceNotFoundException("Worker not found with id: $workerId") }
         
+        if (worker.owner.id != shift.store.owner.id) throw ResourceNotFoundException("Resource not found")
         shift.assignWorker(worker)
         return regularShiftRepository.save(shift)
     }
