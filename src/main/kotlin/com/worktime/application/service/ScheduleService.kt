@@ -94,10 +94,7 @@ class ScheduleService(
         enforceWorkerMutationPolicy(schedule.worker)
         scheduleRepository.refreshForWrite(schedule)
 
-        // 시간 유효성 검사
-        if (!request.endAtUtc.isAfter(request.startAtUtc)) {
-             throw IllegalArgumentException("End time must be after start time")
-        }
+        // Immutable ScheduleUpdateRequest validates time order in its constructor.
 
         // 중복 체크 (자신 제외)
         val overlappingSchedules = scheduleRepository.findConfirmedSchedulesOverlapping(

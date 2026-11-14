@@ -12,7 +12,7 @@ import java.util.*
 interface ScheduleRepository {
     
     /** Refresh state after acquiring the worker lock, within the same transaction. */
-    fun refreshForWrite(schedule: Schedule) {}
+    fun refreshForWrite(schedule: Schedule)
 
     fun save(schedule: Schedule): Schedule
     

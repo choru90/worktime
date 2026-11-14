@@ -38,15 +38,21 @@ class BusinessHoursService(
         val store = storeRepository.findById(storeId)
             .orElseThrow { ResourceNotFoundException("Store not found with id: $storeId") }
         
+        // Validate the entire replacement before deleting any persisted hours.
+        // Same rule as BusinessHours.updateHours: open days require start < end.
+        hours.forEach { request ->
+            require(request.isClosed || request.openTime.isBefore(request.closeTime)) {
+                "영업 시작 시간은 종료 시간보다 이전이어야 합니다"
+            }
+        }
+
         // 기존 영업시간 삭제
         businessHoursRepository.deleteByStoreId(storeId)
+        // Flush deletes before inserts to avoid the store/day unique key collision.
+        businessHoursRepository.flush()
         
         // 새 영업시간 저장
         val businessHoursList = hours.map { request ->
-            require(!request.isClosed || (request.openTime.isBefore(request.closeTime) || request.isClosed)) {
-                "영업 시작 시간은 종료 시간보다 이전이어야 합니다"
-            }
-            
             BusinessHours(
                 store = store,
                 dayOfWeek = request.dayOfWeek,

@@ -8,7 +8,7 @@ import java.util.*
  */
 interface WorkerRepository {
     /** Serialize account linking and work-log writes for a worker inside the caller transaction. */
-    fun lockForWrite(worker: Worker) {}
+    fun lockForWrite(worker: Worker)
     fun save(worker: Worker): Worker
     fun findById(id: UUID): Worker?
     fun findAll(): List<Worker>
