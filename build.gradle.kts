@@ -96,6 +96,7 @@ tasks.register<JavaExec>("e2eServer") {
         "--spring.datasource.driver-class-name=org.h2.Driver",
         "--spring.datasource.username=sa", "--spring.datasource.password=",
         "--spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+        "--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
         "--spring.jpa.hibernate.ddl-auto=create-drop", "--spring.flyway.enabled=false",
         "--jwt.secret=wt002-disposable-e2e-signing-key-at-least-32-bytes", "--jwt.expiration=3600000",
         "--spring.jpa.show-sql=false", "--spring.jpa.properties.hibernate.generate_statistics=false",
