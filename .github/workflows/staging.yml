@@ -2,6 +2,13 @@ name: Worktime backend CI and staging deployment
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy_staging:
+        description: 'Deploy this exact main revision to staging (explicit approval required)'
+        type: boolean
+        required: false
+        default: false
 permissions:
   contents: read
 jobs:
@@ -65,14 +72,14 @@ jobs:
       - name: Build image
         run: docker build -f deploy/Dockerfile -t worktime-backend:${{ github.sha }} .
       - name: Package deploy image
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_staging
         env:
           SERVICE: backend
         run: |
           docker save worktime-backend:${{ github.sha }} | gzip > image.tar.gz
           python3 deploy/package.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_staging
         with:
           name: backend-${{ github.sha }}
           path: |
@@ -81,7 +88,7 @@ jobs:
           retention-days: 1
           if-no-files-found: error
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_staging
     needs: ci
     runs-on: ubuntu-24.04
     timeout-minutes: 15
