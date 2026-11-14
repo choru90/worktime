@@ -89,10 +89,3 @@ object DashboardDateRange {
     // 주의: 주의 시작일 정의가 필요합니다 (월요일 시작? 일요일 시작?)
     // Sprint 1에서 요구사항 확인 후 구현 예정
 }
-
-/**
- * ZonedDateTime을 OffsetDateTime으로 변환하는 확장 함수
- */
-private fun java.time.ZonedDateTime.toOffsetDateTime(): OffsetDateTime {
-    return this.toOffsetDateTime()
-}

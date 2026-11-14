@@ -74,6 +74,8 @@ class WorkerService(
         val worker = workerRepository.findById(id)
             ?: throw ResourceNotFoundException("Worker not found with id: $id")
         
+        workerRepository.lockForWrite(worker)
+
         // 현재 활성 시급 계약 종료
         val currentWageContract = wageContractUseCase.getCurrentWageContract(worker)
         if (currentWageContract != null) {

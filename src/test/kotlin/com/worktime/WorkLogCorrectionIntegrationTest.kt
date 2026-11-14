@@ -72,4 +72,59 @@ class WorkLogCorrectionIntegrationTest {
    tx.execute{assertEquals(before,em.find(WorkLog::class.java,f.id).clockOutAt)}
   }finally{pool.shutdownNow()}
  }
+ @Test fun `simultaneous duplicate approvals pay persisted work exactly once`() {
+  val f=fixture(WorkLogStatus.COMPLETED)
+  tx.executeWithoutResult {
+   em.persist(WageContract(worker=em.find(Worker::class.java,f.worker),hourlyWage=java.math.BigDecimal("12345"),startDate=java.time.LocalDate.of(2020,1,1)))
+  }
+  val gate=CountDownLatch(1);val pool=Executors.newFixedThreadPool(2)
+  try {
+   val jobs=(1..2).map { pool.submit<Int> {
+    check(gate.await(5,TimeUnit.SECONDS))
+    mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner)).andReturn().response.status
+   } }
+   gate.countDown()
+   assertEquals(listOf(200,400),jobs.map { it.get(20,TimeUnit.SECONDS) }.sorted())
+   tx.execute {
+    val log=em.find(WorkLog::class.java,f.id)
+    assertEquals(WorkLogStatus.CONFIRMED,log.status)
+    assertEquals(240L,log.calculateDuration()!!.toMinutes())
+    assertEquals(0,log.correctionCount)
+   }
+   for(token in listOf(f.owner,f.token)) {
+    val response=mvc.perform(get("/api/workers/${f.worker}/payroll?from=2026-01-01&to=2026-01-31").header("Authorization",token)).andReturn().response
+    assertEquals(200,response.status)
+    val body=json.readTree(response.contentAsString)
+    assertEquals(49380,body["totalPay"].asInt())
+    assertEquals(1,body["wageDetails"].size())
+   }
+  } finally { pool.shutdownNow() }
+ }
+
+ @Test fun `missing checkout rejection correction and reapproval change payroll only after review`() {
+  val f=fixture()
+  tx.executeWithoutResult { em.persist(WageContract(worker=em.find(Worker::class.java,f.worker),hourlyWage=java.math.BigDecimal("10001"),startDate=java.time.LocalDate.of(2020,1,1))) }
+  fun amount():Int {
+   val response=mvc.perform(get("/api/payroll/workers/${f.worker}/monthly?year=2026&month=1").header("Authorization",f.token)).andReturn().response
+   assertEquals(200,response.status)
+   return json.readTree(response.contentAsString)["totalAmount"].asInt()
+  }
+  assertEquals(0,amount())
+  assertEquals(200,correct(f,end=start.plusMinutes(30)).status)
+  assertEquals(0,amount())
+  assertEquals(200,mvc.perform(post("/api/work-logs/${f.id}/reject").header("Authorization",f.owner).contentType(MediaType.APPLICATION_JSON).content("""{"reason":"check duration","expectedCorrectionCount":1}""")).andReturn().response.status)
+  assertEquals(0,amount())
+  assertEquals(200,correct(f,WorkLogStatus.REJECTED,1,end=start.plusMinutes(90)).status)
+  assertEquals(0,amount())
+  assertEquals(409,mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner).contentType(MediaType.APPLICATION_JSON).content("""{"expectedCorrectionCount":1}""")).andReturn().response.status)
+  assertEquals(200,mvc.perform(post("/api/work-logs/${f.id}/confirm").header("Authorization",f.owner).contentType(MediaType.APPLICATION_JSON).content("""{"expectedCorrectionCount":2}""")).andReturn().response.status)
+  assertEquals(15002,amount())
+  tx.execute {
+   val log=em.find(WorkLog::class.java,f.id)
+   assertEquals(WorkLogStatus.CONFIRMED,log.status)
+   assertEquals(2,log.correctionCount);assertEquals(2,log.corrections.size)
+   assertEquals(start.plusMinutes(90).toInstant(),log.clockOutAt!!.toInstant())
+  }
+ }
+
 }

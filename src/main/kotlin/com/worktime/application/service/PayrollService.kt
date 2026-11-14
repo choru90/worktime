@@ -63,7 +63,7 @@ class PayrollService(
         // Group by date for daily summaries
         val dailySummaries = workLogs
             .groupBy { workLog ->
-                workLog.clockInAt.toLocalDate()
+                workLog.clockInAt.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate()
             }
             .map { (date, logs) ->
                 val dailyMinutes = logs.sumOf { it.calculateDuration()?.toMinutes() ?: 0L }
@@ -202,7 +202,7 @@ class PayrollService(
         
         // Calculate daily details
         val dailyDetails = workLogs
-            .groupBy { workLog -> workLog.clockInAt.toLocalDate() }
+            .groupBy { workLog -> workLog.clockInAt.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate() }
             .map { (date, logs) ->
                 val dailyMinutes = logs.sumOf { it.calculateDuration()?.toMinutes() ?: 0L }
                 val dailyHours = dailyMinutes / 60.0
@@ -210,8 +210,12 @@ class PayrollService(
                 // Get wage contract for the date
                 val wageInfo = wageContractUseCase.getWageOnDate(workerId, date)
                 val hourlyWage = wageInfo.hourlyWage ?: BigDecimal.ZERO
-                val amount = hourlyWage.multiply(BigDecimal.valueOf(dailyHours))
-                    .setScale(0, RoundingMode.HALF_UP)
+                // Keep the established per-work-log rounding used by the owner summary.
+                // Rounding the daily aggregate can lose a won across split shifts.
+                val amount = logs.sumOf { log ->
+                    val hours = (log.calculateDuration()?.toMinutes() ?: 0L) / 60.0
+                    hourlyWage.multiply(BigDecimal.valueOf(hours)).setScale(0, RoundingMode.HALF_UP)
+                }
                 
                 com.worktime.adapter.input.web.dto.payroll.DailyPayrollDetail(
                     date = date.toString(),
@@ -248,7 +252,7 @@ class PayrollService(
             ?: throw BusinessException("Cannot calculate pay for incomplete work log: ${workLog.id}")
         
         val hours = duration.toMinutes() / 60.0
-        val date = workLog.clockInAt.toLocalDate()
+        val date = workLog.clockInAt.withOffsetSameInstant(ZoneOffset.UTC).toLocalDate()
         
         // Get wage contract for the work date
         val wageInfo = wageContractUseCase.getWageOnDate(workLog.worker.id, date)

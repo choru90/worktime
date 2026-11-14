@@ -32,16 +32,16 @@ class PayrollCalculationBoundaryTest {
     private fun wage(date: LocalDate, amount: String?) {
         whenever(wages.getWageOnDate(worker.id,date)).thenReturn(WageInfoResponse(date,amount?.let(::BigDecimal),amount!=null))
     }
-    @Test fun `payroll rounds each shift half up and looks up its local work date`() {
+    @Test fun `payroll rounds each shift half up and looks up its UTC work date`() {
         setup()
         val first=log(minutes=1)
         val second=log(OffsetDateTime.parse("2024-03-01T00:30:00+09:00"),30)
         whenever(logs.findConfirmedWorkLogsInRange(any(),any(),any())).thenReturn(listOf(first,second))
         wage(day,"10005"); wage(day.plusDays(1),"10001")
         val result=service.calculatePayroll(worker.id,day,day.plusDays(1))
-        assertEquals(BigDecimal("5168"),result.totalPay)
-        assertEquals(listOf(BigDecimal("167"),BigDecimal("5001")),result.wageDetails.map { it.pay })
-        assertEquals(listOf(day,day.plusDays(1)),result.wageDetails.map { it.date })
+        assertEquals(BigDecimal("5170"),result.totalPay)
+        assertEquals(listOf(BigDecimal("167"),BigDecimal("5003")),result.wageDetails.map { it.pay })
+        assertEquals(listOf(day,day),result.wageDetails.map { it.date })
         assertEquals(31.0/60,result.totalHours,0.0000001)
         verify(logs).findConfirmedWorkLogsInRange(worker,day.atStartOfDay().atOffset(ZoneOffset.UTC),day.plusDays(2).atStartOfDay().atOffset(ZoneOffset.UTC))
     }
