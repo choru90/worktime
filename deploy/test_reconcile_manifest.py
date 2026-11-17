@@ -242,5 +242,19 @@ class JournalPreconditionsTest(unittest.TestCase):
                     recovery.require_no_journal(root)
 
 
+class ReconciliationErrorRedactionTest(unittest.TestCase):
+    def test_cli_never_exports_private_io_exception_text(self):
+        import contextlib
+        import io
+        for error, expected in [(OSError('PRIVATE_IO_VALUE'), 'server IO, parse or query failure'),
+                                (recovery.Refused('controller changed'), 'controller changed')]:
+            output = io.StringIO()
+            with patch('sys.argv', ['reconcile_manifest.py', '--reviewed-lock-file', '/opt/worktime/deploy.lock']), \
+                    patch.object(recovery, 'reconcile', side_effect=error), contextlib.redirect_stdout(output):
+                self.assertEqual(1, recovery.main())
+            self.assertNotIn('PRIVATE_IO_VALUE', output.getvalue())
+            self.assertEqual(expected, json.loads(output.getvalue())['refusal_reason'])
+
+
 if __name__ == '__main__':
     unittest.main()
