@@ -159,7 +159,7 @@ jobs:
           class ContractRedaction(ast.NodeTransformer):
               def visit_Constant(self,node):
                   value=node.value
-                  allowed=isinstance(value,str) and (value in {"migration_sha256","manifest.json"} or bool(re.fullmatch(r"(?:/opt/worktime/)?[a-zA-Z0-9_.-]+\.lock",value)))
+                  allowed=isinstance(value,str) and (value in {"migration_sha256","manifest.json","sha","backend","web","previous","current","services"} or bool(re.fullmatch(r"(?:/opt/worktime/)?[a-zA-Z0-9_.-]+\.lock",value)))
                   return node if allowed else ast.copy_location(ast.Constant(value="<redacted>"),node)
           def contract(node):
               return ast.unparse(ast.fix_missing_locations(ContractRedaction().visit(copy.deepcopy(node))))
@@ -168,5 +168,13 @@ jobs:
                             "lock_call_contracts":[contract(n) for n in lock_calls],
                             "lock_path_literals":sorted({n.value for n in ast.walk(tree) if isinstance(n,ast.Constant) and isinstance(n.value,str) and re.fullmatch(r"(?:/opt/worktime/)?[a-zA-Z0-9_.-]+\.lock",n.value)}),
                             "controller_review_pending":True,"server_state_modified":False}))
+
+          # Complete control/data-flow review without executing or exporting source literals.
+          assert hashlib.sha256(source.encode()).hexdigest()=="5ffbf53db65ada79f002f1d825c403870cca047179ea0dd7a57b1b63c126a6ae", "controller changed; review stopped"
+          redacted_controller=contract(tree)
+          assert len(redacted_controller)<=65536, "controller trace exceeds review limit"
+          print(json.dumps({"controller_control_flow_redacted":redacted_controller,
+                            "source_literals_redacted":True,"server_state_modified":False,
+                            "runtime_credentials_exported":False}))
 
           PY

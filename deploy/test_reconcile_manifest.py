@@ -180,5 +180,28 @@ class InspectionRedactionTest(unittest.TestCase):
             self.assertNotIn(literal, namespace['contract'](ast.Constant(value=literal)))
 
 
+        controller = ast.parse("""
+from pathlib import Path
+import fcntl, json
+ROOT = Path('/opt/worktime')
+SECRET = 'PRIVATE_CONFIG_VALUE'
+def deploy(root, meta):
+    old = json.loads((root / 'manifest.json').read_text())
+    if meta['migration_sha256'] != old['migration_sha256']:
+        raise RuntimeError('PRIVATE_ERROR_TEXT')
+    return old['backend']['sha']
+with (ROOT / 'deploy.lock').open('a') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    deploy(ROOT, {})
+""")
+        rendered_controller = namespace['contract'](controller)
+        for forbidden in ['PRIVATE_CONFIG_VALUE', 'PRIVATE_ERROR_TEXT', '/opt/worktime']:
+            self.assertNotIn(forbidden, rendered_controller)
+        for required in ['manifest.json', 'deploy.lock', 'fcntl.flock', "old['backend']['sha']"]:
+            self.assertIn(required, rendered_controller)
+        # The controller is transformed/unparsed, never executed; its file opens do not run.
+        ast.parse(rendered_controller)
+
+
 if __name__ == '__main__':
     unittest.main()
