@@ -169,6 +169,21 @@ jobs:
                             "lock_path_literals":sorted({n.value for n in ast.walk(tree) if isinstance(n,ast.Constant) and isinstance(n.value,str) and re.fullmatch(r"(?:/opt/worktime/)?[a-zA-Z0-9_.-]+\.lock",n.value)}),
                             "controller_review_pending":True,"server_state_modified":False}))
 
+          # Classify manifest revision fields without exposing unknown values or config keys.
+          def manifest_revision_states(document,path=""):
+              states=[]
+              if not isinstance(document,dict):return states
+              for key,value in document.items():
+                  if key not in {"backend","web","sha","migration_sha256","previous","current","services"}:continue
+                  field=(path+"." if path else "")+key
+                  if isinstance(value,dict):states.extend(manifest_revision_states(value,field))
+                  elif isinstance(value,str):
+                      kind="v4" if value in EXPECTED_V4 else "v5" if value==EXPECTED_V5 else "running_backend" if value in {"5fe566ceb5a65a0a8d9bfa081500f8013031fa3d","worktime-backend:5fe566ceb5a65a0a8d9bfa081500f8013031fa3d"} else "incoming_backend" if value in {target,"worktime-backend:"+target} else "other_redacted"
+                      states.append({"field":field,"state":kind})
+              return states
+          print(json.dumps({"manifest_revision_states":manifest_revision_states(json.loads((root/"manifest.json").read_text())),
+                            "server_state_modified":False,"runtime_credentials_exported":False}))
+
           # Complete control/data-flow review without executing or exporting source literals.
           assert hashlib.sha256(source.encode()).hexdigest()=="5ffbf53db65ada79f002f1d825c403870cca047179ea0dd7a57b1b63c126a6ae", "controller changed; review stopped"
           redacted_controller=contract(tree)
