@@ -166,9 +166,15 @@ class InspectionRedactionTest(unittest.TestCase):
         source = textwrap.dedent(workflow.read_text().split("<<'PY'\n", 1)[1].rsplit('\n          PY', 1)[0])
         tree = ast.parse(source)
         selected = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'ContractRedaction'
-                    or isinstance(n, ast.FunctionDef) and n.name == 'contract']
-        namespace = {'ast': ast, 'copy': copy, 're': re}
+                    or isinstance(n, ast.FunctionDef) and n.name in {'contract', 'manifest_revision_states'}]
+        namespace = {'ast': ast, 'copy': copy, 're': re, 'EXPECTED_V4': {recovery.OLD}, 'EXPECTED_V5': recovery.NEW, 'target': recovery.TARGET}
         exec(compile(ast.Module(body=selected, type_ignores=[]), 'synthetic-contract-redaction', 'exec'), namespace)
+        states = namespace['manifest_revision_states']({'backend': {'sha': recovery.CURRENT},
+            'web': 'PRIVATE_CONFIG_VALUE', 'migration_sha256': recovery.OLD,
+            'PRIVATE_CONFIG_KEY': {'sha': 'PRIVATE_CONFIG_VALUE'}})
+        self.assertEqual([{'field': 'backend.sha', 'state': 'running_backend'},
+                          {'field': 'web', 'state': 'other_redacted'},
+                          {'field': 'migration_sha256', 'state': 'v4'}], states)
         expression = ast.parse("manifest.get('migration_sha256') != metadata['migration_sha256'] and secret == 'PRIVATE_TEST_VALUE'", mode='eval').body
         rendered = namespace['contract'](expression)
         self.assertIn('migration_sha256', rendered)
@@ -178,6 +184,29 @@ class InspectionRedactionTest(unittest.TestCase):
             self.assertIn(literal, namespace['contract'](ast.Constant(value=literal)))
         for literal in ['/etc/private.lock', 'private-credential', '/opt/worktime/.env']:
             self.assertNotIn(literal, namespace['contract'](ast.Constant(value=literal)))
+
+
+        controller = ast.parse("""
+from pathlib import Path
+import fcntl, json
+ROOT = Path('/opt/worktime')
+SECRET = 'PRIVATE_CONFIG_VALUE'
+def deploy(root, meta):
+    old = json.loads((root / 'manifest.json').read_text())
+    if meta['migration_sha256'] != old['migration_sha256']:
+        raise RuntimeError('PRIVATE_ERROR_TEXT')
+    return old['backend']['sha']
+with (ROOT / 'deploy.lock').open('a') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    deploy(ROOT, {})
+""")
+        rendered_controller = namespace['contract'](controller)
+        for forbidden in ['PRIVATE_CONFIG_VALUE', 'PRIVATE_ERROR_TEXT', '/opt/worktime']:
+            self.assertNotIn(forbidden, rendered_controller)
+        for required in ['manifest.json', 'deploy.lock', 'fcntl.flock', "old['backend']['sha']"]:
+            self.assertIn(required, rendered_controller)
+        # The controller is transformed/unparsed, never executed; its file opens do not run.
+        ast.parse(rendered_controller)
 
 
 if __name__ == '__main__':
