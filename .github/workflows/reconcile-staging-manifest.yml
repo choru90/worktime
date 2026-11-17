@@ -1,0 +1,58 @@
+name: Reviewed WT-002 staging manifest reconciliation
+on:
+  workflow_dispatch:
+    inputs:
+      reconcile_manifest:
+        description: 'Apply the reviewed V4-to-V5 manifest correction (requires CEO authorization); false validates only'
+        type: boolean
+        required: false
+        default: false
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    concurrency:
+      group: staging-backend
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Verify reviewed runtime source and migrations
+        run: |
+          set -euo pipefail
+          git diff --exit-code 7466b0e35d9546731e024dd7b02e267701a04f19 "$GITHUB_SHA" -- src/main
+          test "$(python3 deploy/migrations.py)" = c276840a0438395c0f32e9844dcda29137c03a194df7212bb48462d34a14316d
+          python3 -m unittest discover -s deploy -p 'test_*.py'
+          sha256sum deploy/reconcile_manifest.py
+      - name: Validate and optionally reconcile exact diagnosed manifest
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          APPLY_RECONCILIATION: ${{ inputs.reconcile_manifest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$APPLY_RECONCILIATION" == true || "$APPLY_RECONCILIATION" == false ]]
+          key_dir=$(mktemp -d)
+          trap 'rm -rf "$key_dir"' EXIT
+          chmod 700 "$key_dir"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$key_dir/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$key_dir/known_hosts"
+          chmod 600 "$key_dir/key" "$key_dir/known_hosts"
+          options=(-i "$key_dir/key" -o BatchMode=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$key_dir/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -p "$DEPLOY_PORT")
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          ssh "${options[@]}" "$remote" 'python3 - --reviewed-lock-file /opt/worktime/deploy.lock' < deploy/reconcile_manifest.py
+          if [[ "$APPLY_RECONCILIATION" == true ]]; then
+            ssh "${options[@]}" "$remote" 'python3 - --reviewed-lock-file /opt/worktime/deploy.lock --apply --acknowledgement WT-002-reconcile-only-reviewed-V5' < deploy/reconcile_manifest.py
+          fi

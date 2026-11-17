@@ -5,6 +5,7 @@ Never invoke deploy.py, rewrite its guard, deploy an image, or execute migration
 The operator must first review the pinned controller's manifest semantics and lock.
 """
 import argparse
+import ast
 import copy
 import fcntl
 import hashlib
@@ -60,6 +61,8 @@ def parse(raw):
 def proposed_manifest(raw):
     """Preserve original bytes except the single verified approval value."""
     document = parse(raw)
+    require(isinstance(document, dict) and document.get("backend") == CURRENT
+            and document.get("migration_sha256") == OLD, "manifest identity or root baseline changed")
     fields = []
 
     def visit(value):
@@ -102,8 +105,29 @@ def command(root, args, data=None):
     return result.stdout
 
 
+def require_no_journal(root):
+    # Resolve the journal path structurally from the exact reviewed controller.
+    # Never execute/import server code or assume a journal filename.
+    tree = ast.parse((root / 'deploy.py').read_text())
+    deploy = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'deploy']
+    require(len(deploy) == 1, 'controller deploy structure changed')
+    assignments = [n.value for n in ast.walk(deploy[0]) if isinstance(n, ast.Assign)
+                   and any(isinstance(t, ast.Name) and t.id == 'journal' for t in n.targets)]
+    require(len(assignments) == 1, 'journal structure changed')
+    value = assignments[0]
+    require(isinstance(value, ast.BinOp) and isinstance(value.op, ast.Div)
+            and isinstance(value.left, ast.Name) and value.left.id == 'root'
+            and isinstance(value.right, ast.Constant) and isinstance(value.right.value, str),
+            'journal path structure changed')
+    name = value.right.value
+    require(bool(name) and Path(name).name == name and name not in {'.', '..'}, 'journal path escapes root')
+    journal = root / name
+    require(not journal.exists() and not journal.is_symlink(), 'interrupted deployment requires review')
+
+
 def verify_runtime(root):
     require(digest(root / 'deploy.py') == CONTROLLER, 'controller changed')
+    require_no_journal(root)
     incoming = root / 'incoming' / 'backend' / TARGET
     metadata = parse((incoming / 'metadata.json').read_bytes())
     require(metadata.get('sha') == TARGET and metadata.get('service') == 'backend', 'incoming identity changed')
