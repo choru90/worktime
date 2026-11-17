@@ -111,4 +111,47 @@ jobs:
           condition=parent.test if parent is not None else gate
           fields=sorted({n.value for n in ast.walk(condition) if isinstance(n,ast.Constant) and isinstance(n.value,str) and ("migration" in n.value.lower() or "approv" in n.value.lower()) and len(n.value)<80})
           print(json.dumps({"approval_condition_fields":fields,"approval_condition_uses_file_read":any(isinstance(n,ast.Attribute) and n.attr=="read_text" for n in ast.walk(condition)),"approval_condition_uses_json_field":any(isinstance(n,ast.Subscript) for n in ast.walk(condition))}))
+
+          # Observe top-level deployment JSON metadata; never export file documents.
+          # Never export config documents, environment variables or unrecognized values.
+          def migration_values(document):
+              found=[]
+              if isinstance(document,dict):
+                  for key,value in document.items():
+                      if key=="migration_sha256":
+                          found.append(value if isinstance(value,str) and value in EXPECTED_V4|{EXPECTED_V5} else "unrecognized")
+                      elif isinstance(value,(dict,list)):
+                          found.extend(migration_values(value))
+              elif isinstance(document,list):
+                  for value in document:found.extend(migration_values(value))
+              return found
+          baselines=[]
+          for path in sorted(root.glob("*.json")):
+              try:
+                  if not (path.resolve().parent==root.resolve() and path.is_file() and path.stat().st_size<=1048576):continue
+                  values=migration_values(json.loads(path.read_text()))
+                  if values:baselines.append({"config_basename":path.name,"migration_fingerprints":values})
+              except (ValueError,TypeError,KeyError,OSError):pass
+          target="7466b0e35d9546731e024dd7b02e267701a04f19"
+          staged=root/"incoming"/"backend"/target
+          incoming=json.loads((staged/"metadata.json").read_text())
+          assert incoming["service"]=="backend" and incoming["sha"]==target
+          assert incoming["migration_sha256"]==EXPECTED_V5
+          archive_digest=hashlib.sha256()
+          with (staged/"image.tar.gz").open("rb") as stream:
+              for chunk in iter(lambda:stream.read(1048576),b""):archive_digest.update(chunk)
+          archive_matches=archive_digest.hexdigest()==incoming["archive_sha256"]
+          images=[]
+          for item in containers:
+              image=item.get("Config",{}).get("Image","")
+              labels=item.get("Config",{}).get("Labels",{})
+              if "worktime-backend" not in image:continue
+              if labels.get("com.docker.compose.project.working_dir")!=str(root):continue
+              tag=image.rsplit(":",1)[-1]
+              images.append({"sha":tag if re.fullmatch("[a-f0-9]{40}",tag) else "unrecognized","running":bool(item.get("State",{}).get("Running"))})
+          print(json.dumps({"approval_baselines":baselines,"incoming_release_sha":target,
+                            "incoming_migration_matches_v5":True,"incoming_archive_checksum_matches":archive_matches,
+                            "running_backend_images":images,"executor_source_sha256":hashlib.sha256(source.encode()).hexdigest(),
+                            "server_state_modified":False,"runtime_credentials_exported":False}))
+
           PY
