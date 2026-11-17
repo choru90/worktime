@@ -230,9 +230,11 @@ def main():
     args = parser.parse_args()
     try:
         result = reconcile(args.root, args.reviewed_lock_file, args.apply, args.acknowledgement)
-    except (Refused, OSError, ValueError, subprocess.SubprocessError):
-        # Never print raw config, query output, or exception text containing server data.
-        print(json.dumps({'reconciliation_completed': False, 'sensitive_output_suppressed': True}))
+    except (Refused, OSError, ValueError, subprocess.SubprocessError) as error:
+        # Refused contains static reason strings only; IO/query exception text stays private.
+        reason = str(error) if isinstance(error, Refused) else 'server IO, parse or query failure'
+        print(json.dumps({'reconciliation_completed': False, 'refusal_reason': reason,
+                          'sensitive_output_suppressed': True}))
         return 1
     print(json.dumps(result))
     return 0
