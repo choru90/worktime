@@ -156,6 +156,29 @@ class RuntimePreconditionsTest(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(recovery.Refused):
                 self.runtime(**change)
 
+class InspectionRedactionTest(unittest.TestCase):
+    def test_only_migration_and_lock_literals_are_exported(self):
+        import ast
+        import copy
+        import re
+        import textwrap
+        workflow = Path(__file__).resolve().parents[1] / '.github/workflows/inspect-v5.yml'
+        source = textwrap.dedent(workflow.read_text().split("<<'PY'\n", 1)[1].rsplit('\n          PY', 1)[0])
+        tree = ast.parse(source)
+        selected = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'ContractRedaction'
+                    or isinstance(n, ast.FunctionDef) and n.name == 'contract']
+        namespace = {'ast': ast, 'copy': copy, 're': re}
+        exec(compile(ast.Module(body=selected, type_ignores=[]), 'synthetic-contract-redaction', 'exec'), namespace)
+        expression = ast.parse("manifest.get('migration_sha256') != metadata['migration_sha256'] and secret == 'PRIVATE_TEST_VALUE'", mode='eval').body
+        rendered = namespace['contract'](expression)
+        self.assertIn('migration_sha256', rendered)
+        self.assertNotIn('PRIVATE_TEST_VALUE', rendered)
+        self.assertIn('<redacted>', rendered)
+        for literal in ['deploy.lock', '/opt/worktime/deploy.lock']:
+            self.assertIn(literal, namespace['contract'](ast.Constant(value=literal)))
+        for literal in ['/etc/private.lock', 'private-credential', '/opt/worktime/.env']:
+            self.assertNotIn(literal, namespace['contract'](ast.Constant(value=literal)))
+
 
 if __name__ == '__main__':
     unittest.main()
