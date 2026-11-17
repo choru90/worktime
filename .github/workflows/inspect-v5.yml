@@ -137,8 +137,10 @@ jobs:
           incoming=json.loads((staged/"metadata.json").read_text())
           assert incoming["service"]=="backend" and incoming["sha"]==target
           assert incoming["migration_sha256"]==EXPECTED_V5
+          archive_digest=hashlib.sha256()
           with (staged/"image.tar.gz").open("rb") as stream:
-              archive_matches=hashlib.file_digest(stream,"sha256").hexdigest()==incoming["archive_sha256"]
+              for chunk in iter(lambda:stream.read(1048576),b""):archive_digest.update(chunk)
+          archive_matches=archive_digest.hexdigest()==incoming["archive_sha256"]
           images=[]
           for item in containers:
               image=item.get("Config",{}).get("Image","")
