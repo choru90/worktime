@@ -17,7 +17,7 @@ class ManifestRecoveryTest(unittest.TestCase):
         self.lock.touch(mode=0o600)
         self.manifest = self.root / 'manifest.json'
         self.original = ('{\n  "migration_sha256": "' + recovery.OLD + '",\n'
-                         '  "backend": "unchanged", "web": {"sha": "unchanged"}\n}\n').encode()
+                         '  "backend": "' + recovery.CURRENT + '", "web": {"sha": "unchanged"}\n}\n').encode()
         self.manifest.write_bytes(self.original)
         self.manifest.chmod(0o600)
         (self.root / 'backups').mkdir(mode=0o700)
@@ -76,13 +76,20 @@ class ManifestRecoveryTest(unittest.TestCase):
             self.run_recovery(apply=True)
 
     def test_ambiguous_or_changed_manifest_refuses(self):
-        cases = [b'{}', json.dumps({'migration_sha256': recovery.NEW}).encode(),
-                 json.dumps({'migration_sha256': recovery.OLD, 'nested': {'migration_sha256': recovery.OLD}}).encode(),
+        cases = [b'{}', json.dumps({'backend': recovery.CURRENT, 'migration_sha256': recovery.NEW}).encode(),
+                 json.dumps({'backend': recovery.CURRENT, 'migration_sha256': recovery.OLD, 'nested': {'migration_sha256': recovery.OLD}}).encode(),
                  ('{"migration_sha256":"' + recovery.OLD + '","migration_sha256":"bad"}').encode(),
-                 json.dumps({'migration_sha256': recovery.OLD, 'unrelated': recovery.OLD}).encode()]
+                 json.dumps({'backend': recovery.CURRENT, 'migration_sha256': recovery.OLD, 'unrelated': recovery.OLD}).encode()]
         for raw in cases:
             with self.subTest(raw=raw), self.assertRaises((recovery.Refused, ValueError)):
                 recovery.proposed_manifest(raw)
+
+    def test_manifest_recorded_backend_must_match_reviewed_running_image(self):
+        changed = self.original.replace(recovery.CURRENT.encode(), recovery.TARGET.encode())
+        self.manifest.write_bytes(changed)
+        with self.assertRaises(recovery.Refused):
+            self.run_recovery(apply=True)
+        self.assertEqual(changed, self.manifest.read_bytes())
 
     def test_symlink_refuses(self):
         self.manifest.rename(self.root / 'real.json')
@@ -141,7 +148,7 @@ class RuntimePreconditionsTest(unittest.TestCase):
             return next(outputs)
         def digest(path):
             return changes.get('controller', recovery.CONTROLLER) if path.name == 'deploy.py' else changes.get('archive', recovery.ARCHIVE)
-        with patch.object(recovery, 'command', side_effect=command), patch.object(recovery, 'digest', side_effect=digest), patch.object(Path, 'read_bytes', return_value=json.dumps(meta).encode()):
+        with patch.object(recovery, 'require_no_journal'), patch.object(recovery, 'command', side_effect=command), patch.object(recovery, 'digest', side_effect=digest), patch.object(Path, 'read_bytes', return_value=json.dumps(meta).encode()):
             recovery.verify_runtime(root)
 
     def test_exact_diagnosed_runtime_passes_readonly_queries(self):
@@ -207,6 +214,46 @@ with (ROOT / 'deploy.lock').open('a') as lock:
             self.assertIn(required, rendered_controller)
         # The controller is transformed/unparsed, never executed; its file opens do not run.
         ast.parse(rendered_controller)
+
+
+class JournalPreconditionsTest(unittest.TestCase):
+    def test_absent_journal_passes_and_existing_or_dangling_journal_refuses(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'deploy.py').write_text("def deploy(root):\n    journal = root / 'synthetic-journal.json'\n")
+            recovery.require_no_journal(root)
+            journal = root / 'synthetic-journal.json'
+            journal.write_text('{}')
+            with self.assertRaises(recovery.Refused):
+                recovery.require_no_journal(root)
+            journal.unlink()
+            journal.symlink_to(root / 'missing')
+            with self.assertRaises(recovery.Refused):
+                recovery.require_no_journal(root)
+
+    def test_unknown_or_escaping_journal_structure_refuses(self):
+        for source in ["def deploy(root):\n    journal = resolve_unknown_path()\n",
+                       "def deploy(root):\n    journal = root / '../outside.json'\n",
+                       "def deploy(root):\n    pass\n"]:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                (root / 'deploy.py').write_text(source)
+                with self.assertRaises(recovery.Refused):
+                    recovery.require_no_journal(root)
+
+
+class ReconciliationErrorRedactionTest(unittest.TestCase):
+    def test_cli_never_exports_private_io_exception_text(self):
+        import contextlib
+        import io
+        for error, expected in [(OSError('PRIVATE_IO_VALUE'), 'server IO, parse or query failure'),
+                                (recovery.Refused('controller changed'), 'controller changed')]:
+            output = io.StringIO()
+            with patch('sys.argv', ['reconcile_manifest.py', '--reviewed-lock-file', '/opt/worktime/deploy.lock']), \
+                    patch.object(recovery, 'reconcile', side_effect=error), contextlib.redirect_stdout(output):
+                self.assertEqual(1, recovery.main())
+            self.assertNotIn('PRIVATE_IO_VALUE', output.getvalue())
+            self.assertEqual(expected, json.loads(output.getvalue())['refusal_reason'])
 
 
 if __name__ == '__main__':
