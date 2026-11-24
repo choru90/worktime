@@ -1,10 +1,14 @@
 package com.worktime.adapter.input.web
 
+import com.worktime.adapter.output.push.PushQueue
 import com.worktime.adapter.input.web.dto.notification.NotificationListResponse
 import com.worktime.adapter.input.web.dto.notification.NotificationResponse
 import com.worktime.application.service.NotificationService
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
+import jakarta.validation.constraints.Pattern
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.bind.annotation.*
@@ -17,7 +21,8 @@ import java.util.*
 @RequestMapping("/api/notifications")
 @Tag(name = "Notification", description = "알림 API")
 class NotificationController(
-    private val notificationService: NotificationService
+    private val notificationService: NotificationService,
+    private val pushQueue: PushQueue
 ) {
     
     /**
@@ -28,6 +33,24 @@ class NotificationController(
         return UUID.fromString(authentication.name)
     }
     
+    data class PushDeviceRequest(
+        @field:Pattern(regexp = """(?:Exponent|Expo)PushToken\[[-_A-Za-z0-9]{1,170}\]""")
+        val token: String
+    )
+
+    @PutMapping("/push-device")
+    fun registerPushDevice(@Valid @RequestBody request: PushDeviceRequest): ResponseEntity<Void> {
+        if (!pushQueue.enabled) return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build()
+        pushQueue.register(getCurrentUserId(), request.token)
+        return ResponseEntity.noContent().build()
+    }
+
+    @DeleteMapping("/push-device")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun unregisterPushDevice(@Valid @RequestBody request: PushDeviceRequest) {
+        pushQueue.unregister(getCurrentUserId(), request.token)
+    }
+
     @GetMapping
     @Operation(summary = "알림 목록 조회", description = "로그인한 사용자의 모든 알림을 최신순으로 조회합니다")
     fun getNotifications(): ResponseEntity<NotificationListResponse> {

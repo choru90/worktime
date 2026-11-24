@@ -1,5 +1,8 @@
 package com.worktime
 
+import com.worktime.adapter.output.push.PushQueue
+import com.worktime.application.service.NotificationService
+import com.worktime.domain.model.NotificationType
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
 import org.junit.jupiter.api.Assertions.*
@@ -8,7 +11,12 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.sql.DriverManager
+import java.sql.Timestamp
+import java.time.Instant
+import java.util.UUID
 
 /** Opt-in, destructive tests restricted to a disposable local schema. Never use production data. */
 @EnabledIfEnvironmentVariable(named = "WORKTIME_MYSQL_MIGRATION_TEST_URL", matches = ".+")
@@ -31,12 +39,12 @@ class MysqlMigrationIntegrationTest {
     private fun scalar(query: String): String = DriverManager.getConnection(url, "root", "").use { c ->
         c.createStatement().use { s -> s.execute("SET time_zone='+00:00'"); s.executeQuery(query).use { r -> r.next(); r.getString(1) } }
     }
-    private fun startValidated() = SpringApplicationBuilder(Application::class.java).run(
+    private fun startValidated(vararg properties: String) = SpringApplicationBuilder(Application::class.java).run(
         "--spring.datasource.url=$url", "--spring.datasource.username=root", "--spring.datasource.password=",
         "--spring.jpa.hibernate.ddl-auto=validate", "--spring.flyway.enabled=true", "--server.port=0",
         "--jwt.secret=synthetic-migration-test-secret-with-at-least-32-bytes",
         "--logging.level.root=WARN", "--logging.level.com.worktime=WARN", "--logging.level.org.hibernate.SQL=WARN",
-        "--spring.jpa.show-sql=false"
+        "--spring.jpa.show-sql=false", *properties
     )
     private fun legacy() {
         flyway("3").migrate()
@@ -50,10 +58,50 @@ class MysqlMigrationIntegrationTest {
     }
     @Test fun `fresh schema migrates then passes Hibernate validation`() {
         startValidated().use {
-            assertEquals("5", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
+            assertEquals("6", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
             assertEquals("1", scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='workers' AND column_name='invite_code'"))
         }
     }
+    @Test fun `push delivery follows notification commit and current device binding`() {
+        legacy()
+        startValidated("--worktime.push.enabled=true").use { context ->
+            val queue = context.getBean(PushQueue::class.java)
+            val notifications = context.getBean(NotificationService::class.java)
+            val tx = TransactionTemplate(context.getBean(PlatformTransactionManager::class.java))
+            val first = UUID(0, 1)
+            val second = UUID(0, 9)
+            val token = "ExpoPushToken[synthetic-123]"
+            sql("INSERT INTO users(id,email,password,name,role) VALUES (UNHEX(LPAD('9',32,'0')),'worker@example.test','synthetic','Worker','WORKER')")
+            queue.register(first, token)
+            tx.executeWithoutResult { status ->
+                notifications.createNotification(first, NotificationType.SCHEDULE_PROPOSED, "Title", "Message")
+                status.setRollbackOnly()
+            }
+            assertEquals("0", scalar("SELECT COUNT(*) FROM push_deliveries"))
+            // Delay dispatch by inserting and inspecting the job inside its transaction.
+            tx.executeWithoutResult {
+                notifications.createNotification(first, NotificationType.SCHEDULE_PROPOSED, "Title", "Message")
+                val now = Timestamp.from(Instant.now().plusSeconds(1))
+                val job = queue.due(now).single()
+                assertTrue(queue.claim(job, now))
+                assertFalse(queue.claim(job, now))
+                queue.register(first, token)
+                assertTrue(queue.isRegistered(job))
+                queue.register(second, token)
+                queue.unregister(first, token)
+                assertFalse(queue.isRegistered(job))
+                queue.finish(job)
+                notifications.createNotification(second, NotificationType.SCHEDULE_CONFIRMED, "Title", "Message")
+                val next = queue.due(Timestamp.from(Instant.now().plusSeconds(1))).single()
+                assertTrue(queue.isRegistered(next))
+                queue.unregister(second, token)
+                assertFalse(queue.isRegistered(next))
+                queue.finish(next)
+            }
+            assertEquals("2", scalar("SELECT COUNT(*) FROM notifications"))
+        }
+    }
+
     @Test fun `legacy rows preserve IDs wages timestamps and local schedules`() {
         legacy()
         startValidated().use {

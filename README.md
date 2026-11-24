@@ -58,3 +58,10 @@ Docker 구성은 Dockerfile과 docker-compose.yml을 참고한다. 기존 Compos
 ## 구조
 
 `domain/model`은 엔티티와 상태, `application/service`는 업무 로직, `application/port`는 인터페이스, `adapter/input/web`은 API, `adapter/output/persistence`는 JPA, `src/main/resources/db/migration`은 Flyway 마이그레이션이다. 현재 도메인 엔티티는 JPA 어노테이션을 사용한다.
+
+### 직원 앱 푸시
+
+Flyway V6 적용 후 백엔드 컨테이너에 `WORKTIME_PUSH_ENABLED=true`를 설정하면
+앱에서 등록한 기기로 일정 제안·확정·거절 알림을 보냅니다. Expo 프로젝트에서
+push security를 사용한다면 `WORKTIME_PUSH_EXPO_ACCESS_TOKEN`을 서버에 설정하세요.
+백엔드에서 `exp.host:443`에 연결할 수 있어야 합니다.

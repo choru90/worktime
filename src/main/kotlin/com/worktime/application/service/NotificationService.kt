@@ -1,5 +1,6 @@
 package com.worktime.application.service
 
+import com.worktime.adapter.output.push.PushQueue
 import com.worktime.application.port.output.NotificationRepository
 import com.worktime.application.port.output.UserRepository
 import com.worktime.domain.exception.ResourceNotFoundException
@@ -16,7 +17,8 @@ import java.util.*
 @Transactional(readOnly = true)
 class NotificationService(
     private val notificationRepository: NotificationRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val pushQueue: PushQueue
 ) {
     
     /**
@@ -41,7 +43,9 @@ class NotificationService(
             referenceId = referenceId
         )
         
-        return notificationRepository.save(notification)
+        val saved = notificationRepository.save(notification)
+        pushQueue.enqueue(userId)
+        return saved
     }
     
     /**
