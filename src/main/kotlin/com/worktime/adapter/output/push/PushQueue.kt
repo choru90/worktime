@@ -33,10 +33,13 @@ class PushQueue(
     @Transactional(propagation = Propagation.MANDATORY)
     fun enqueue(userId: UUID) {
         if (!enabled) return
+        val now = Instant.now()
         jdbc.update(
-            """INSERT INTO push_deliveries (push_token, binding_id, expires_at)
-               SELECT push_token, binding_id, ? FROM push_devices WHERE user_id = ?""",
-            Timestamp.from(Instant.now().plus(24, ChronoUnit.HOURS)), userId.bytes()
+            // Bind both timestamps like due()/claim(); the database session may use
+            // a different timezone from the JDBC connection's configured timezone.
+            """INSERT INTO push_deliveries (push_token, binding_id, due_at, expires_at)
+               SELECT push_token, binding_id, ?, ? FROM push_devices WHERE user_id = ?""",
+            Timestamp.from(now), Timestamp.from(now.plus(24, ChronoUnit.HOURS)), userId.bytes()
         )
     }
 

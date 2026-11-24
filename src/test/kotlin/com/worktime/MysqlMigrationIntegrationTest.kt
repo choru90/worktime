@@ -64,7 +64,10 @@ class MysqlMigrationIntegrationTest {
     }
     @Test fun `push delivery follows notification commit and current device binding`() {
         legacy()
-        startValidated("--worktime.push.enabled=true").use { context ->
+        startValidated(
+            "--worktime.push.enabled=true",
+            "--spring.datasource.hikari.connection-init-sql=SET time_zone = '+09:00'"
+        ).use { context ->
             val queue = context.getBean(PushQueue::class.java)
             val notifications = context.getBean(NotificationService::class.java)
             val tx = TransactionTemplate(context.getBean(PlatformTransactionManager::class.java))
@@ -97,8 +100,11 @@ class MysqlMigrationIntegrationTest {
                 queue.unregister(second, token)
                 assertFalse(queue.isRegistered(next))
                 queue.finish(next)
+                queue.register(second, token)
+                notifications.createNotification(second, NotificationType.SCHEDULE_CONFIRMED, "Title", "Message")
+                assertTrue(queue.due(Timestamp.from(Instant.now().plusSeconds(25 * 3600))).isEmpty())
             }
-            assertEquals("2", scalar("SELECT COUNT(*) FROM notifications"))
+            assertEquals("3", scalar("SELECT COUNT(*) FROM notifications"))
         }
     }
 
