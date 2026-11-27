@@ -66,7 +66,8 @@ class ScheduleService(
             startAtUtc = request.startAtUtc,
             endAtUtc = request.endAtUtc,
             timezone = request.timezone,
-            status = status
+            status = status,
+            memo = request.memo
         )
         
         val savedSchedule = scheduleRepository.save(schedule)

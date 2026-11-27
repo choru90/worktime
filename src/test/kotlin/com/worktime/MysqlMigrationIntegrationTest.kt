@@ -58,8 +58,21 @@ class MysqlMigrationIntegrationTest {
     }
     @Test fun `fresh schema migrates then passes Hibernate validation`() {
         startValidated().use {
-            assertEquals("6", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
+            assertEquals("7", scalar("SELECT version FROM flyway_schema_history WHERE success=1 ORDER BY installed_rank DESC LIMIT 1"))
             assertEquals("1", scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='workers' AND column_name='invite_code'"))
+        }
+    }
+    @Test fun `V6 schedule rows survive nullable memo migration and legacy inserts still work`() {
+        legacy()
+        flyway("6").migrate()
+        flyway().migrate()
+        assertEquals("1", scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='schedules' AND column_name='memo' AND is_nullable='YES' AND character_maximum_length=500"))
+        assertEquals("1", scalar("SELECT COUNT(*) FROM schedules WHERE id=UNHEX(LPAD('7',32,'0')) AND memo IS NULL"))
+        sql("INSERT INTO schedules(id,worker_id,start_at_utc,end_at_utc,timezone,status) VALUES (UNHEX(LPAD('99',32,'0')),UNHEX(LPAD('4',32,'0')),'2026-11-27 11:00:00','2026-11-27 12:00:00','Asia/Seoul','PROPOSED_BY_OWNER')")
+        assertEquals("1", scalar("SELECT COUNT(*) FROM schedules WHERE id=UNHEX(LPAD('99',32,'0')) AND memo IS NULL"))
+        startValidated().use {
+            sql("UPDATE schedules SET memo='인수인계 & <text>' WHERE id=UNHEX(LPAD('99',32,'0'))")
+            assertEquals("인수인계 & <text>", scalar("SELECT memo FROM schedules WHERE id=UNHEX(LPAD('99',32,'0'))"))
         }
     }
     @Test fun `push delivery follows notification commit and current device binding`() {

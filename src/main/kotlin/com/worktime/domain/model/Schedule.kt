@@ -67,7 +67,10 @@ class Schedule(
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
-    var status: ScheduleStatus = ScheduleStatus.REQUESTED_BY_WORKER
+    var status: ScheduleStatus = ScheduleStatus.REQUESTED_BY_WORKER,
+
+    @Column(length = 500)
+    val memo: String? = null
 ) : BaseEntity() {
     
     /**
