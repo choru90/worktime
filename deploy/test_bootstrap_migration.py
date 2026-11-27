@@ -4,7 +4,9 @@ import unittest
 import tempfile
 from pathlib import Path
 import fcntl
+import os
 from unittest.mock import patch
+import bootstrap_migration
 from bootstrap_migration import candidate
 from migration_release import Refused
 
@@ -30,6 +32,23 @@ def deploy(root, service, sha, incoming):
 
 
 class BootstrapTest(unittest.TestCase):
+    def test_cli_candidate_is_private_even_with_permissive_umask_and_never_overwrites(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source=Path(directory)/'original.py'
+            source.write_text(SOURCE)
+            output=Path(directory)/'candidate.py'
+            argv=['bootstrap_migration.py','--controller',str(source),'--output',str(output)]
+            render=lambda raw:candidate(raw,hashlib.sha256(SOURCE.encode()).hexdigest())
+            prior=os.umask(0)
+            try:
+                with patch('sys.argv',argv), patch.object(bootstrap_migration,'candidate',side_effect=render):
+                    bootstrap_migration.main()
+                    self.assertEqual(output.stat().st_mode & 0o777,0o600)
+                    with self.assertRaises(FileExistsError): bootstrap_migration.main()
+            finally:
+                os.umask(prior)
+            self.assertEqual(source.read_text(),SOURCE)
+
     def test_all_hooks_hold_existing_exclusive_lock(self):
         source = candidate(SOURCE, hashlib.sha256(SOURCE.encode()).hexdigest())
         with tempfile.TemporaryDirectory() as directory:

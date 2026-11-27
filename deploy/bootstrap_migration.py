@@ -2,6 +2,7 @@
 import argparse
 import ast
 import hashlib
+import os
 from pathlib import Path
 
 from migration_release import require
@@ -53,8 +54,11 @@ def main():
     args = parser.parse_args()
     # Exclusive output: this command cannot overwrite the active controller.
     rendered = candidate(args.controller.read_text())
-    with args.output.open('x') as out:
+    fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as out:
         out.write(rendered)
+        out.flush()
+        os.fsync(out.fileno())
     print('review_candidate_sha256=' + hashlib.sha256(rendered.encode()).hexdigest())
 
 
