@@ -1,5 +1,7 @@
 # V5 → V7 migration/controller candidate
 
+See [expected bootstrap contract diff and required administrator capabilities](bootstrap-contract.patch.txt). This is a structural review aid, not a generated or installed host candidate. Actual deployment also requires a per-writer inventory and stopped/disabled/restart-inhibited evidence from every external writer owner; the profile boolean alone does not supply that evidence.
+
 This PR implements the reviewed item17 execution plan. It does not authorize its own merge, install a controller, mutate live DB/manifest, deploy, or change GitHub environment/SSH approval rules. Push/PR runs tests only. Historical V4→V5 reconciliation must not be repurposed.
 
 ## Separate trust/bootstrap approval

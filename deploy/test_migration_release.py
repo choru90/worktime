@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import migration_release as release
 
@@ -140,6 +141,37 @@ class ReleaseTest(unittest.TestCase):
         release.complete(self.root, 'backend', 'd' * 40)
         self.assertFalse((self.root / release.JOURNAL).exists())
         self.assertTrue(list(self.root.glob('migration-completed-*.json')))
+
+    def test_crash_after_manifest_approval_before_journal_update_refuses(self):
+        atomic = release.atomic
+        def interrupt(path, state):
+            if path.name == release.JOURNAL and state.get('phase') == 'approved':
+                raise OSError('simulated power loss after manifest replacement')
+            return atomic(path, state)
+        with patch.object(release, 'atomic', side_effect=interrupt):
+            with self.assertRaises(OSError): self.execute()
+        self.assertEqual(release.load(self.root / 'manifest.json')['migration_sha256'], 'e'*64)
+        self.assertEqual(release.load(self.root / release.JOURNAL)['phase'], 'verified7')
+        with self.assertRaises(release.Refused): self.execute(resume=True)
+        with self.assertRaises(release.Refused): release.guard_state(self.root,'web','b'*40)
+
+    def test_backend_rollback_restarted_writer_blocks_approved_resume(self):
+        self.execute()
+        self.runtime.frozen = False  # normal controller rollback brought the old backend back up
+        with self.assertRaises(release.Refused): self.execute(resume=True)
+        self.assertEqual(release.load(self.root / release.JOURNAL)['phase'], 'approved')
+
+    def test_approved_resume_requires_both_proofs_and_unchanged_database(self):
+        self.execute()
+        for name in ['v5.sql','v7.sql']:
+            path = self.root / name
+            original = path.read_bytes()
+            path.write_bytes(b'corrupted restore evidence')
+            with self.assertRaises(release.Refused): self.execute(resume=True)
+            path.write_bytes(original)
+        self.runtime.changed = True
+        with self.assertRaises(release.Refused): self.execute(resume=True)
+        self.assertEqual(release.load(self.root / release.JOURNAL)['phase'], 'approved')
 
 
 if __name__ == '__main__': unittest.main()

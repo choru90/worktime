@@ -1,0 +1,39 @@
+Expected controller extension contract — NOT an actual host-generated candidate.
+The original host file stays private. bootstrap_migration.py requires its exact
+reviewed SHA/AST and emits an exclusive new file for full private diff review.
+No actual host candidate generation/installation was performed.
+
+--- existing pinned controller (structural anchors)
++++ reviewed candidate (formatter may reformat original source)
+@@ imports
++import migration_release
+@@ inside the existing deployment-wide lock
+     with (root / 'deploy.lock').open('a') as lock:
+         fcntl.flock(lock, fcntl.LOCK_EX)
++        migration_release.guard(root, service, sha)
+         # original journal, current-main, metadata and archive checks
+@@ immediately before the unchanged fingerprint gate
++        old = migration_release.prepare(root, service, sha, incoming, old)
+         if service == 'backend' and meta['migration_sha256'] != old['migration_sha256']:
+             raise RuntimeError('migration change requires reviewed release')
+@@ original activation try, after successful smoke/manifest write
+             smoke(root)
+             atomic_json(root / 'manifest.json', new)
++            migration_release.complete(root, service, sha)
+
+Required existing administrator capabilities, separately approved:
+- Trusted host/root ownership and atomic installation under /opt/worktime;
+  preserve deploy.lock inode and verify original controller/config backups.
+- Docker inspect/load/run/stop for exact IDs; all-instance inventory, maintenance
+  and restart-policy changes through the existing authorized admin path.
+- Existing migration DB privileges, private container-local credentials, source
+  dump and independent restore privileges on pre-provisioned empty schemas;
+  adequate storage/retention and measured restore capacity/time.
+- Evidence from EVERY external writer owner: instance/job identity, source DB,
+  stopped/disabled state, timestamp, restart inhibition, maintenance owner.
+  A boolean profile assertion alone is insufficient live deployment evidence.
+- Existing GitHub staging environment/SSH access for normal exact-main deploy,
+  only after new PR merge AND separate trust-bootstrap confirmation.
+
+Generator provisions none of these. Missing evidence/permissions means STOP;
+no new account, key, billing, gate bypass, or implicit installation approval.

@@ -11,6 +11,7 @@ import re
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import migration_release as release
 
@@ -159,6 +160,33 @@ class MysqlReleaseTest(unittest.TestCase):
         self.runtime.migrate(6)
         self.sql(self.schema, 'DROP INDEX idx_push_due ON push_deliveries')
         with self.assertRaises(release.Refused): self.runtime.observe()
+
+    def test_manifest_checkpoint_gap(self):
+        atomic = release.atomic
+        def interrupt(path, state):
+            if path.name == release.JOURNAL and state.get('phase') == 'approved':
+                raise OSError('simulated interruption after manifest approval')
+            return atomic(path, state)
+        with patch.object(release,'atomic',side_effect=interrupt):
+            with self.assertRaises(OSError): release.execute(self.root,self.plan,self.runtime)
+        self.assertEqual(release.load(self.root / release.JOURNAL)['phase'],'verified7')
+        self.assertEqual(release.load(self.root / 'manifest.json')['migration_sha256'],'e'*64)
+        with self.assertRaises(release.Refused): release.execute(self.root,self.plan,self.runtime,resume=True)
+
+    def test_approved_resume_evidence(self):
+        release.execute(self.root,self.plan,self.runtime)
+        self.runtime.frozen = False
+        with self.assertRaises(release.Refused): release.execute(self.root,self.plan,self.runtime,resume=True)
+        self.runtime.frozen = True
+        for label in ['v5','v7']:
+            path = self.root / ('backup-'+label+'.sql')
+            original = path.read_bytes()
+            path.write_bytes(b'changed synthetic backup')
+            with self.assertRaises(release.Refused): release.execute(self.root,self.plan,self.runtime,resume=True)
+            path.write_bytes(original)
+        self.sql(self.schema,"UPDATE users SET name='changed after approval'")
+        with self.assertRaises(release.Refused): release.execute(self.root,self.plan,self.runtime,resume=True)
+        self.assertEqual(release.load(self.root / release.JOURNAL)['phase'],'approved')
 
 
 if __name__ == '__main__': unittest.main()
