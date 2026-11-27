@@ -24,6 +24,9 @@ No actual host candidate generation/installation was performed.
 Required existing administrator capabilities, separately approved:
 - Trusted host/root ownership and atomic installation under /opt/worktime;
   preserve deploy.lock inode and verify original controller/config backups.
+  Keep existing nonroot execution identity: admin-owned code/plan readable but
+  not writable by it (reviewed existing group/0640), its own secrets/state0600;
+  do not install root-only unreadable code then silently add sudo/new account.
 - Docker inspect/load/run/stop for exact IDs; all-instance inventory, maintenance
   and restart-policy changes through the existing authorized admin path.
 - Existing migration DB privileges, private container-local credentials, source

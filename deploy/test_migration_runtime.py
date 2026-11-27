@@ -1,12 +1,36 @@
 import json
 import unittest
 import tempfile
+import os
+import stat
+from unittest.mock import patch
 from pathlib import Path
 from migration_runtime import DockerRuntime, approved_environment
 from migration_release import Refused
+from migration_release import private_file, trusted_file
 
 
 class InventoryTest(unittest.TestCase):
+    def test_existing_nonroot_executor_reads_trusted_code_and_owns_secrets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'credential.env'
+            path.write_text('synthetic')
+            path.chmod(0o600)
+            private_file(path)
+            path.chmod(0o640)
+            with self.assertRaises(Refused): private_file(path)
+            info=list(path.stat())
+            info[0]=stat.S_IFREG | 0o640
+            # Administrator-owned, group-readable to the existing executor.
+            info[4]=0
+            # stat_result positions: nlink=3, uid=4; preserve one hard link
+            info[3]=1
+            with patch.object(Path,'lstat',return_value=os.stat_result(info)):
+                trusted_file(path)
+            info[0]=stat.S_IFREG | 0o660
+            with patch.object(Path,'lstat',return_value=os.stat_result(info)):
+                with self.assertRaises(Refused): trusted_file(path)
+
     def test_jdbc_target_is_local_and_matches_approved_db_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory)/'source.env'

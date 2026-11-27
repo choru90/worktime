@@ -18,7 +18,7 @@ def main():
     release.require(root.is_absolute() and root.resolve() == root, 'canonical trusted root required')
     release.require(args.acknowledgement == 'reviewed-frozen-exact-target-resume', 'explicit resume acknowledgement required')
     for name in ['deploy.py', 'migration_release.py', 'migration_runtime.py', 'migration-plan.json']:
-        release.private_file(root / name)
+        release.trusted_file(root / name)
     plan = release.load(root / 'migration-plan.json')
     release.require(plan['target_sha'] == args.target_sha, 'resume target changed')
     for key, name in [('controller_sha256','deploy.py'), ('runtime_sha256','migration_runtime.py'), ('release_sha256','migration_release.py')]:

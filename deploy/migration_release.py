@@ -75,10 +75,23 @@ def atomic(path, value):
             os.unlink(temporary)
 
 
-def private_file(path, owner=0):
+def private_file(path, owner=None):
+    if owner is None:
+        owner = os.geteuid()
     info = path.lstat()
     require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == owner
             and not info.st_mode & 0o077, 'trusted private regular file required')
+
+
+def trusted_file(path):
+    """Admin-owned code/approval, readable by the existing nonroot executor.
+
+    No sudo/new execution identity. Credentials/state use private_file instead.
+    """
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == 0
+            and stat.S_IMODE(info.st_mode) in {0o600, 0o640, 0o644},
+            'administrator-owned read-only trusted file required')
 
 
 def history(snapshot, version):
@@ -220,12 +233,14 @@ def prepare(root, service, sha, incoming, old):
     if meta['migration_sha256'] == old['migration_sha256'] and not (root / JOURNAL).exists():
         return old
     profile = root / 'migration-plan.json'
-    private_file(profile)
+    trusted_file(profile)
     plan = load(profile)
     require(service == 'backend' and sha == plan['target_sha'], 'release not approved for migration')
     for key in ('migration_sha256', 'archive_sha256'):
         require(meta[key] == plan[key], 'approved artifact changed')
     require(digest(incoming / 'image.tar.gz') == plan['archive_sha256'], 'approved archive changed')
+    for name in ['deploy.py', 'migration_runtime.py', 'migration_release.py']:
+        trusted_file(root / name)
     require(plan['controller_sha256'] == digest(root / 'deploy.py'), 'trusted controller changed')
     require(plan['runtime_sha256'] == digest(root / 'migration_runtime.py')
             and plan['release_sha256'] == digest(root / 'migration_release.py'), 'trusted extension changed')
