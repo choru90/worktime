@@ -38,6 +38,20 @@ Source, restore-V5 and restore-V7 each have a separately pinned file name/hash. 
 
 ## Ordered execution under the existing flock
 
+### Prepare the exact artifact without deployment
+
+After this PR is approved/merged, the existing main workflow has a **separate** `prepare_artifact=true` mode (`deploy_staging=false`): CI/test/build/package/upload only, no staging environment/SSH deployment job. This breaks the circular dependency between approving the exact archive/image digest and deploying it. Example commands are instructions for a later approved operation, not executions performed by this PR:
+
+```
+gh workflow run staging.yml --ref main -f prepare_artifact=true
+# Wait for SUCCESS; download backend-<exact-main-SHA> from that run.
+# Independently review archive_sha256, image_id, migration fingerprint and SHA.
+# After separate trusted-bootstrap/profile approval and administrator installation:
+gh workflow run staging.yml --ref main -f deploy_staging=true -f prepared_run_id=<successful-prepare-run>
+```
+
+Prepare/deploy flags are mutually exclusive; prepared_run_id is accepted only for explicit main deployment. Before download/SSH, provenance must be completed/SUCCESS, manual main event, this workflow path and exactly the current target SHA. The existing environment approval still gates deployment; only `actions:read` is added to that job for cross-run artifact retrieval. Download the **same** archive/metadata from the reviewed run, not a rebuilt/recompressed substitute. Metadata adds `image_id` while retaining all prior fields; the old controller ignores this additive field, and the new extension checks it against the approved plan and loaded image. Artifact retention remains one day: expiry/ref changes/digest mismatch fail before host mutation, never silently re-approve a new build. The manual prepare/reuse route is not run before this PR's merge/approval.
+
 Normal exact-main/archive validation precedes the hook. Unchanged migration-fingerprint releases need no migration plan. A changed-fingerprint backend must match the trusted plan and installed code digests.
 
 1. Verify source UUID/database and exact applied V1–V5 checksums against this artifact's resolved migrations. Refuse unknown/failed/additional history. Write/fsync the migration journal before freezing every reviewed writer; recheck inventory and source after freeze.

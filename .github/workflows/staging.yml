@@ -9,6 +9,16 @@ on:
         type: boolean
         required: false
         default: false
+      prepare_artifact:
+        description: 'Build and publish exact artifact for review only; no SSH/deployment'
+        type: boolean
+        required: false
+        default: false
+      prepared_run_id:
+        description: 'Reuse reviewed artifact from successful main manual run (deployment only)'
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -34,6 +44,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Validate separate prepare and deployment modes
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DEPLOY_STAGING: ${{ inputs.deploy_staging }}
+          PREPARE_ARTIFACT: ${{ inputs.prepare_artifact }}
+          PREPARED_RUN_ID: ${{ inputs.prepared_run_id }}
+        run: python3 deploy/artifact_release.py mode
       - run: python3 -m unittest discover -s deploy -p "test_*.py"
       - name: Test and package
         run: bash gradlew test bootJar --no-daemon
@@ -77,16 +94,18 @@ jobs:
           expected=$(python3 deploy/migrations.py --count)
           docker exec "${{ job.services.mysql.id }}" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -u root worktime -N -e "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1"' | grep -qx "$expected"
       - name: Build image
-        run: docker build -f deploy/Dockerfile -t worktime-backend:${{ github.sha }} .
+        run: |
+          docker build -f deploy/Dockerfile -t worktime-backend:${{ github.sha }} .
+          docker image inspect --format '{{.Id}}' worktime-backend:${{ github.sha }} | grep -Eq '^sha256:[a-f0-9]{64}$'
       - name: Package deploy image
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_staging
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.prepare_artifact || (inputs.deploy_staging && inputs.prepared_run_id == ''))
         env:
           SERVICE: backend
         run: |
           docker save worktime-backend:${{ github.sha }} | gzip > image.tar.gz
           python3 deploy/package.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_staging
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.prepare_artifact || (inputs.deploy_staging && inputs.prepared_run_id == ''))
         with:
           name: backend-${{ github.sha }}
           path: |
@@ -100,14 +119,28 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: staging
+    permissions:
+      contents: read
+      actions: read
     concurrency:
       group: staging-backend
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify reviewed artifact run provenance
+        if: inputs.prepared_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREPARED_RUN_ID: ${{ inputs.prepared_run_id }}
+        run: |
+          [[ "$PREPARED_RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PREPARED_RUN_ID" > prepared-run.json
+          python3 deploy/artifact_release.py provenance prepared-run.json
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: backend-${{ github.sha }}
+          run-id: ${{ inputs.prepared_run_id || github.run_id }}
+          github-token: ${{ github.token }}
       - name: Transfer and deploy exact CI artifact
         env:
           SERVICE: backend

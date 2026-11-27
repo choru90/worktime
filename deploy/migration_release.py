@@ -239,6 +239,7 @@ def prepare(root, service, sha, incoming, old):
     for key in ('migration_sha256', 'archive_sha256'):
         require(meta[key] == plan[key], 'approved artifact changed')
     require(digest(incoming / 'image.tar.gz') == plan['archive_sha256'], 'approved archive changed')
+    require(meta.get('image_id') == plan['docker']['image_id'], 'approved image metadata changed')
     for name in ['deploy.py', 'migration_runtime.py', 'migration_release.py']:
         trusted_file(root / name)
     require(plan['controller_sha256'] == digest(root / 'deploy.py'), 'trusted controller changed')
