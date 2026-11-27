@@ -1,0 +1,23 @@
+{
+  "target_sha": "REVIEW_POST_MERGE_MAIN_SHA",
+  "old_backend": "b674b1fcb12a18f67d3d6f0ddff63e5d4f4155c4",
+  "old_migration_sha256": "c276840a0438395c0f32e9844dcda29137c03a194df7212bb48462d34a14316d",
+  "migration_sha256": "REVIEW_ARTIFACT_MIGRATION_FINGERPRINT",
+  "archive_sha256": "REVIEW_CI_ARCHIVE_DIGEST",
+  "controller_sha256": "REVIEW_INSTALLED_CONTROLLER_DIGEST",
+  "runtime_sha256": "REVIEW_INSTALLED_RUNTIME_DIGEST",
+  "release_sha256": "REVIEW_INSTALLED_RELEASE_DIGEST",
+  "identity": {"server_uuid": "REVIEW_SOURCE_UUID", "database": "REVIEW_SOURCE_SCHEMA"},
+  "docker": {
+    "source_container": "REVIEW_FULL_SOURCE_MYSQL_ID",
+    "restore_container": "REVIEW_FULL_INDEPENDENT_MYSQL_ID",
+    "restore_server_uuid": "REVIEW_RESTORE_UUID",
+    "restore_databases": {"v5": "review_fresh_restore_v5", "v7": "review_fresh_restore_v7"},
+    "image_id": "sha256:REVIEW_LOADED_TARGET_IMAGE_ID",
+    "writer_containers": ["REVIEW_EVERY_FULL_WRITER_ID"],
+    "external_writers_frozen": false,
+    "source_env": "migration-source.env",
+    "restore_v5_env": "migration-restore-v5.env",
+    "restore_v7_env": "migration-restore-v7.env"
+  }
+}
