@@ -1,6 +1,7 @@
 package com.worktime.adapter.input.web.dto.schedule
 
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
 import java.time.OffsetDateTime
 import java.util.*
 
@@ -21,7 +22,10 @@ data class ScheduleCreateRequest(
     val timezone: String,
     
     @field:NotNull(message = "Request type is required")
-    val requestType: ScheduleRequestType
+    val requestType: ScheduleRequestType,
+
+    @field:Size(max = 500, message = "Memo must be at most 500 characters")
+    val memo: String? = null
 ) {
     init {
         require(endAtUtc.isAfter(startAtUtc)) {

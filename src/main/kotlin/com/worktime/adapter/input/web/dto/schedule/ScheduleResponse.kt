@@ -17,7 +17,8 @@ data class ScheduleResponse(
     val timezone: String,
     val status: ScheduleStatus,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val memo: String? = null
 ) {
     companion object {
         fun from(schedule: Schedule): ScheduleResponse {
@@ -30,7 +31,8 @@ data class ScheduleResponse(
                 timezone = schedule.timezone,
                 status = schedule.status,
                 createdAt = schedule.createdAt.toString(),
-                updatedAt = schedule.updatedAt.toString()
+                updatedAt = schedule.updatedAt.toString(),
+                memo = schedule.memo
             )
         }
     }
