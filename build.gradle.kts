@@ -12,6 +12,8 @@ plugins {
 group = "com.worktime"
 version = "0.0.1-SNAPSHOT"
 
+springBoot { mainClass.set("com.worktime.ApplicationKt") }
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
 }
@@ -70,6 +72,15 @@ tasks.withType<KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Explicit opt-in isolated MySQL release regression; fixtures stay out of bootJar.
+tasks.register("migrationReleaseTestClasspath") {
+    dependsOn(tasks.testClasses, tasks.bootJar)
+    doLast {
+        layout.buildDirectory.file("migration-release-test-classpath.txt").get().asFile
+            .writeText(sourceSets["test"].runtimeClasspath.asPath)
+    }
 }
 
 // WT-001: collect coverage evidence before defining enforcement thresholds.

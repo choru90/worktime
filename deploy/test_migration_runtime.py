@@ -1,0 +1,36 @@
+import json
+import unittest
+from migration_runtime import DockerRuntime
+from migration_release import Refused
+
+
+class InventoryTest(unittest.TestCase):
+    def runtime(self):
+        r = object.__new__(DockerRuntime)
+        r.plan = {'old_backend':'a'*40}
+        r.config = {'source_container':'1'*64,'restore_container':'2'*64,'writer_containers':['3'*64], 'external_writers_frozen':True}
+        self.rows = [
+            {'Id':'1'*64,'Config':{'Image':'mysql:8'},'State':{'Running':True}},
+            {'Id':'2'*64,'Config':{'Image':'mysql:8'},'State':{'Running':True}},
+            {'Id':'3'*64,'Config':{'Image':'worktime-backend:'+'a'*40},'State':{'Running':False},'HostConfig':{'RestartPolicy':{'Name':'no'}}}]
+        r.run = lambda args: b'ids' if args[1] == 'ps' else json.dumps(self.rows).encode()
+        return r
+
+    def test_frozen_inventory_and_unknown_backend(self):
+        r = self.runtime()
+        r.inventory(True)
+        self.rows.append({'Id':'4'*64,'Config':{'Image':'worktime-backend:unknown'},'State':{'Running':False}})
+        with self.assertRaises(Refused): r.inventory(True)
+
+    def test_restart_policy_running_writer_and_external_freeze(self):
+        r = self.runtime()
+        self.rows[-1]['HostConfig']['RestartPolicy']['Name'] = 'always'
+        with self.assertRaises(Refused): r.inventory(True)
+        self.rows[-1]['HostConfig']['RestartPolicy']['Name'] = 'no'
+        self.rows[-1]['State']['Running'] = True
+        with self.assertRaises(Refused): r.inventory(True)
+        r.config['external_writers_frozen'] = False
+        with self.assertRaises(Refused): r.inventory(None)
+
+
+if __name__ == '__main__': unittest.main()

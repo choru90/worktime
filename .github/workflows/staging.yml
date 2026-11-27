@@ -37,6 +37,13 @@ jobs:
       - run: python3 -m unittest discover -s deploy -p "test_*.py"
       - name: Test and package
         run: bash gradlew test bootJar --no-daemon
+      - name: MySQL release backup, restore and fail-closed regression
+        env:
+          WORKTIME_RELEASE_TEST_PORT: '3306'
+          WORKTIME_RELEASE_TEST_PASSWORD: synthetic-ci-root-password
+        run: |
+          bash gradlew migrationReleaseTestClasspath --no-daemon
+          python3 -m unittest discover -s deploy -p test_release_mysql.py -v
       - name: Create isolated schedule test schema
         env:
           MYSQL_TEST_CONTAINER: ${{ job.services.mysql.id }}
