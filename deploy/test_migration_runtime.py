@@ -1,10 +1,24 @@
 import json
 import unittest
-from migration_runtime import DockerRuntime
+import tempfile
+from pathlib import Path
+from migration_runtime import DockerRuntime, approved_environment
 from migration_release import Refused
 
 
 class InventoryTest(unittest.TestCase):
+    def test_jdbc_target_is_local_and_matches_approved_db_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'source.env'
+            valid=('WORKTIME_MIGRATION_URL=jdbc:mysql://127.0.0.1:3306/source?serverTimezone=UTC&characterEncoding=UTF-8\n'
+                   'WORKTIME_MIGRATION_USER=approved\nWORKTIME_MIGRATION_PASSWORD=synthetic\n'
+                   'WORKTIME_MIGRATION_SERVER_UUID=uuid\nWORKTIME_MIGRATION_DATABASE=source\n')
+            path.write_text(valid)
+            approved_environment(path,{'server_uuid':'uuid','database':'source'})
+            for raw in [valid.replace('127.0.0.1','other-host'),valid.replace('UUID=uuid','UUID=other'),valid+'UNREVIEWED_SETTING=yes\n',valid+'WORKTIME_MIGRATION_USER=duplicate\n']:
+                path.write_text(raw)
+                with self.assertRaises(Refused): approved_environment(path,{'server_uuid':'uuid','database':'source'})
+
     def runtime(self):
         r = object.__new__(DockerRuntime)
         r.plan = {'old_backend':'a'*40}

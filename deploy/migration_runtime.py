@@ -7,6 +7,23 @@ import subprocess
 from migration_release import Refused, require, private_file, digest, object_digest, sync
 
 
+def approved_environment(path, identity):
+    values = {}
+    for line in path.read_text().splitlines():
+        if not line or line.startswith('#'):
+            continue
+        key, separator, value = line.partition('=')
+        require(separator and key not in values, 'invalid/duplicate migration environment key')
+        values[key] = value
+    require(set(values) == {'WORKTIME_MIGRATION_URL', 'WORKTIME_MIGRATION_USER', 'WORKTIME_MIGRATION_PASSWORD',
+                            'WORKTIME_MIGRATION_SERVER_UUID', 'WORKTIME_MIGRATION_DATABASE'}, 'unexpected migration environment')
+    require(values['WORKTIME_MIGRATION_URL'] == 'jdbc:mysql://127.0.0.1:3306/' + identity['database']
+            + '?serverTimezone=UTC&characterEncoding=UTF-8', 'JDBC must use approved container-local schema')
+    require(values['WORKTIME_MIGRATION_SERVER_UUID'] == identity['server_uuid']
+            and values['WORKTIME_MIGRATION_DATABASE'] == identity['database'], 'credential target identity changed')
+    require(values['WORKTIME_MIGRATION_USER'] and values['WORKTIME_MIGRATION_PASSWORD'], 'existing nonempty credentials required')
+
+
 class DockerRuntime:
     def __init__(self, root, plan, incoming):
         self.root, self.plan = root, plan
@@ -15,6 +32,7 @@ class DockerRuntime:
         for key in ['source_container', 'restore_container']:
             require(re.fullmatch('[a-f0-9]{64}', c[key]), 'exact container IDs required')
         require(c['source_container'] != c['restore_container'], 'restore must use a separate MySQL instance')
+        require(c['restore_server_uuid'] != plan['identity']['server_uuid'], 'restore UUID must differ from source')
         require(re.fullmatch('sha256:[a-f0-9]{64}', c['image_id']), 'exact target image ID required')
         for db in [plan['identity']['database'], *c['restore_databases'].values()]:
             require(re.fullmatch('[a-z][a-z0-9_]{0,63}', db), 'invalid approved schema')
@@ -24,6 +42,9 @@ class DockerRuntime:
             path = root / c[key]
             require(path.parent == root and path.name == c[key], 'credential file outside trusted root')
             private_file(path)
+            label = None if key == 'source_env' else key.removeprefix('restore_').removesuffix('_env')
+            identity = plan['identity'] if label is None else {'server_uuid':c['restore_server_uuid'], 'database':c['restore_databases'][label]}
+            approved_environment(path, identity)
         self.env_hashes = {key: digest(root / c[key]) for key in ['source_env', 'restore_v5_env', 'restore_v7_env']}
         require(c['writer_containers'] and len(set(c['writer_containers'])) == len(c['writer_containers']), 'writer inventory required')
         for cid in c['writer_containers']:
@@ -98,6 +119,8 @@ class DockerRuntime:
         return result
 
     def observe(self):
+        identity = self.mysql(True, self.plan['identity']['database'], 'SELECT @@server_uuid,DATABASE();').decode().strip()
+        require(identity == self.plan['identity']['server_uuid'] + '\t' + self.plan['identity']['database'], 'backup SQL and JDBC source must match')
         return self.cli('snapshot')
 
     def migrate(self, version):
